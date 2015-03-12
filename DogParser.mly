@@ -30,10 +30,11 @@ rule_list:
 
 rule:
 | ORACLE ARROW ORACLE COLON eventexpr { ($1, $3, $5) }
+| NAME ARROW NAME COLON eventexpr { ($1, $3, $5) }
 
 eventexpr:
-| EVENTSYM  { ExprIdentifier($1) }
-| NAME  { ExprIdentifier($1) }
+| EVENTSYM { ExprIdentifier($1) }
+| NAME { ExprIdentifier($1) }
 | ORACLE { ExprOracle(tr_oracle $1) }
 | NUM { ExprNum($1) }
 | BANG eventexpr { ExprNot($2) }

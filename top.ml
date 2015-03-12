@@ -1,9 +1,18 @@
 open DogIR
+open Lexing
 
 let main () =
   try
     let lexbuf = Lexing.from_channel stdin in
-    let dog = DogParser.main DogLexer.token lexbuf in
+    let dog = try
+        DogParser.main DogLexer.token lexbuf
+      with DogParser.Error ->
+        let lxm = lexeme lexbuf
+        and start_loc = lexeme_start_p lexbuf
+        and end_loc = lexeme_end_p lexbuf in
+        Printf.eprintf "Parse error: file %s line %i unexpected '%s'\n" start_loc.pos_fname start_loc.pos_lnum lxm;
+        exit 1
+    in
     let rules, asserts = dog in
     List.iter (fun (_,_,e) -> let _ = print_eventexpr e; print_string "\n" in ()) rules
   with End_of_file -> exit 0
