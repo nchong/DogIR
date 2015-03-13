@@ -15,7 +15,9 @@ let main () =
         exit 1
     in
     let rules, asserts = dog in
-    G.iter_edges_e (fun (_,e,_) -> let _ = print_eventexpr e; print_string "\n" in ()) rules
+    let file = open_out_bin "mygraph.dot" in
+    G.iter_edges_e (fun (_,e,_) -> let _ = print_eventexpr e; print_string "\n" in ()) rules;
+    DogGraph.Dot.output_graph file rules
   with End_of_file -> exit 0
       
 let _ = Printexc.print main ()

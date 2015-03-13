@@ -48,7 +48,6 @@ type star =
 | StarNotMinus
 
 type event =
-| EventDummy
 | EventComplete
 | Event of event_symbol * event_actual list * startend * star
 
@@ -102,7 +101,6 @@ let rec pp_print_list pp_v ppf = function
   | x::xs -> Format.fprintf ppf "%a " pp_v x; pp_print_list pp_v ppf xs
 
 let pp_event ppf = function
-| EventDummy -> Format.fprintf ppf "EventDummy"
 | EventComplete -> Format.fprintf ppf "EventComplete"
 | Event (e,alist,se,star) -> Format.fprintf ppf "%s(%a)%a%a" e (pp_print_list pp_actual) alist pp_startend se pp_star star
 
@@ -132,6 +130,32 @@ let string_of_oracle = function
 | OracleExists x -> Format.sprintf "%s#" x
 | OracleTrue x -> Format.sprintf "%s?#" x
 
+let string_of_startend = function
+| AtStart -> "@s"
+| AtEnd   -> "@e"
+
+let string_of_star = function
+| StarNone -> ""
+| Star -> "*"
+| StarPlus -> "*+"
+| StarMinus -> "*-"
+| StarNotPlus -> "*!+"
+| StarNotMinus -> "*!-"
+
+let rec string_of_oracle = function
+| Oracle x -> x
+| OracleExists x -> Format.sprintf "%s#" x
+| OracleTrue x -> Format.sprintf "%s?" x
+
+let rec string_of_actual = function
+| EventActualOracle x -> string_of_oracle x
+| EventActualAttribute x -> x
+| EventActualNot x -> Format.sprintf "!%s" (string_of_actual x)
+
+let string_of_event = function
+| EventComplete -> "Complete"
+| Event (e,alist,se,star) -> Format.sprintf "%s(%s)%s%s" e (String.concat ", " (List.map string_of_actual alist)) (string_of_startend se) (string_of_star star)
+
 let rec string_of_eventexpr = function
 | ExprIdentifier x -> Format.sprintf "%s" x
 | ExprOracle x -> Format.sprintf "%s" (string_of_oracle x)
@@ -139,4 +163,4 @@ let rec string_of_eventexpr = function
 | ExprNot e -> Format.sprintf "!(%s)" (string_of_eventexpr e)
 | ExprBool (op,e1,e2) -> Format.sprintf "(%s %s %s)" (string_of_eventexpr e1) (string_of_boolop op) (string_of_eventexpr e2)
 | ExprAssign (e1,e2) -> Format.sprintf "(%s := %s)" (string_of_eventexpr e1) (string_of_eventexpr e2)
-| ExprEvent e -> Format.sprintf "Event"
+| ExprEvent e -> string_of_event e
