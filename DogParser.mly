@@ -61,15 +61,15 @@ event_actual:
 
 startend:
 | ATSTART { AtStart }
-| ATEND   { AtEnd   }
+| ATEND { AtEnd   }
 
 star:
-| STAR            { Star }
-| STAR PLUS       { StarPlus }
-| STAR MINUS      { StarMinus }
-| STAR BANG PLUS  { StarNotPlus }
+| STAR { Star }
+| STAR PLUS { StarPlus }
+| STAR MINUS { StarMinus }
+| STAR BANG PLUS { StarNotPlus }
 | STAR BANG MINUS { StarNotMinus }
-|                 { StarNone }
+| { StarNone }
 
 dog_assert_list:
 | dog_assert SEMI dog_assert_list { $1::$3 }
