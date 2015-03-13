@@ -1,8 +1,10 @@
 DogIR
 -----
 
+Prerequisites: opam, menhir, ocamlgraph
+
 Build:
-$ ocamlbuild -use-menhir top.native
+$ ocamlbuild -libs graph -lflags -I,$HOME/.opam/system/lib/ocamlgraph -use-ocamlfind -use-menhir top.native
 
 Simple test:
 

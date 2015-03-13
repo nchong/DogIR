@@ -1,5 +1,6 @@
 %{
 open DogIR
+open DogGraph
 %}
 
 %token <string> ORACLE
@@ -15,13 +16,13 @@ open DogIR
 %token ASSERT IMPLIES ARROW COLON
 %token EOF
 
-%type <DogIR.dog> main
+%type <DogGraph.dog> main
 %start main
 
 %%
 
 main:
-| rule_list dog_assert_list EOF { $1, $2 }
+| rule_list dog_assert_list EOF { (graph_of_rule_list $1), $2 }
 
 rule_list:
 | rule SEMI rule_list { $1::$3 }

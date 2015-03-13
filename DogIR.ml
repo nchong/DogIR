@@ -1,5 +1,6 @@
 (* Dog IR *)
 
+(* slice string s from index [n:m] *)
 let slice s n m =
   assert (n <= m);
   assert (0 <= n); assert (n <= String.length s);
@@ -71,8 +72,6 @@ type rule = state * state * eventexpr
 
 type dog_assert = state * state
 
-type dog = rule list * dog_assert list
-
 (* IR printing *)
 
 let pp_oracle ppf = function
@@ -122,3 +121,22 @@ let rec pp_eventexpr ppf = function
 | ExprEvent e -> Format.fprintf ppf "%a" pp_event e
 
 let print_eventexpr = pp_eventexpr Format.std_formatter
+
+let string_of_boolop = function
+| BoolOr -> "||"
+| BoolAnd -> "&&"
+| BoolEq -> "=="
+
+let string_of_oracle = function
+| Oracle x -> Format.sprintf "%s" x
+| OracleExists x -> Format.sprintf "%s#" x
+| OracleTrue x -> Format.sprintf "%s?#" x
+
+let rec string_of_eventexpr = function
+| ExprIdentifier x -> Format.sprintf "%s" x
+| ExprOracle x -> Format.sprintf "%s" (string_of_oracle x)
+| ExprNum n -> Format.sprintf "%d" n
+| ExprNot e -> Format.sprintf "!(%s)" (string_of_eventexpr e)
+| ExprBool (op,e1,e2) -> Format.sprintf "(%s %s %s)" (string_of_eventexpr e1) (string_of_boolop op) (string_of_eventexpr e2)
+| ExprAssign (e1,e2) -> Format.sprintf "(%s := %s)" (string_of_eventexpr e1) (string_of_eventexpr e2)
+| ExprEvent e -> Format.sprintf "Event"
