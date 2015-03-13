@@ -1,32 +1,12 @@
 (* Dog IR *)
 
-(* slice string s from index [n:m] *)
-let slice s n m =
-  assert (n <= m);
-  assert (0 <= n); assert (n <= String.length s);
-  assert (0 <= m); assert (m <= String.length s);
-  let rec aux acc i =
-    if i == m then acc
-    else aux ((Char.escaped s.[i]) :: acc) (i+1)
-  in
-  String.concat "" (List.rev (aux [] n))
-
+type number = int
 type identifier = string
 
 type oracle =
-| Oracle of identifier
-| OracleExists of identifier
-| OracleTrue of identifier
-
-let tr_oracle s =
-  let lastchar = s.[String.length s - 1] in
-  let sym = slice s 0 (String.length s - 1) in
-  match lastchar with
-  | '#' -> OracleExists sym
-  | '?' -> OracleTrue sym
-  | _   -> Oracle s
-
-type number = int
+| Oracle of identifier       (* e.g., A0 *)
+| OracleExists of identifier (* e.g., A# *)
+| OracleTrue of identifier   (* e.g., A? *)
 
 type startend =
 | AtStart
@@ -71,7 +51,28 @@ type rule = state * state * eventexpr
 
 type dog_assert = state * state
 
-(* IR printing *)
+(* Helpers *)
+
+(* slice string s from index [n:m] *)
+let slice s n m =
+  assert (n <= m);
+  assert (0 <= n); assert (n <= String.length s);
+  assert (0 <= m); assert (m <= String.length s);
+  let rec aux acc i =
+    if i == m then acc
+    else aux ((Char.escaped s.[i]) :: acc) (i+1)
+  in
+  String.concat "" (List.rev (aux [] n))
+
+let tr_oracle s =
+  let lastchar = s.[String.length s - 1] in
+  let sym = slice s 0 (String.length s - 1) in
+  match lastchar with
+  | '#' -> OracleExists sym
+  | '?' -> OracleTrue sym
+  | _   -> Oracle s
+
+(* IR pretty printing *)
 
 let pp_oracle ppf = function
 | Oracle s -> Format.fprintf ppf "Oracle(%s)" s
@@ -119,6 +120,8 @@ let rec pp_eventexpr ppf = function
 | ExprEvent e -> Format.fprintf ppf "%a" pp_event e
 
 let print_eventexpr = pp_eventexpr Format.std_formatter
+
+(* IR to string *)
 
 let string_of_boolop = function
 | BoolOr -> "||"
