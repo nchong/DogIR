@@ -15,7 +15,7 @@ let main () =
         Printf.eprintf "Parse error: file %s line %i unexpected '%s'\n" start_loc.pos_fname start_loc.pos_lnum lxm;
         exit 1
     in
-    let _ = wf dog in
+    let _ = check_wellformed dog in
     let rules, asserts = dog in
     let file = open_out_bin "mygraph.dot" in
     G.iter_edges_e (fun (_,e,_) -> let _ = print_eventexpr e; print_string "\n" in ()) rules;
