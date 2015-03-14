@@ -32,6 +32,8 @@ type dog = G.t * dog_assert list
 let graph_of_rule_list rules =
   List.fold_right (fun (s,s',e) g -> G.add_edge_e g (s,e,s')) rules G.empty
 
+(* Dot interface *)
+
 module Dot = Graph.Graphviz.Dot(struct
   include G
   let edge_attributes (a,e,b) =
@@ -44,3 +46,8 @@ module Dot = Graph.Graphviz.Dot(struct
   let default_vertex_attributes _ = []
   let graph_attributes _ = []
 end)
+
+let dottify dog fname =
+  let (rules, _) = dog in
+  let file = open_out_bin fname in
+  Dot.output_graph file rules

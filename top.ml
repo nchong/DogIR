@@ -17,9 +17,8 @@ let main () =
     in
     let _ = check_wellformed dog in
     let rules, asserts = dog in
-    let file = open_out_bin "mygraph.dot" in
     G.iter_edges_e (fun (_,e,_) -> let _ = print_eventexpr e; print_string "\n" in ()) rules;
-    DogGraph.Dot.output_graph file rules;
+    dottify dog "mygraph.dot";
     List.iter (fun s -> Printf.printf "%s\n" s) (initial_states_of dog)
   with End_of_file -> exit 0
       
