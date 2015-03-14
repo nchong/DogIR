@@ -1,5 +1,6 @@
 open Graph
 open DogIR
+open Lib
 
 module Node = struct
   type t = state
@@ -16,6 +17,15 @@ module Edge = struct
 end
 
 module G = Persistent.Digraph.ConcreteBidirectionalLabeled(Node)(Edge)
+
+let gvertex_filter pred g =
+  G.fold_vertex (fun v acc -> if pred v then v::acc else acc) g []
+
+let accepting_states_of (_, asserts)  =
+  nodups (List.fold_right (fun (_, s') states -> s'::states) asserts [])
+
+let initial_states_of (rules, _) =
+  gvertex_filter (fun v -> G.in_degree rules v = 0) rules
 
 type dog = G.t * dog_assert list
 
