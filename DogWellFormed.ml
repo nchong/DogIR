@@ -33,14 +33,14 @@ let check_matching_start_for_each_end (rules, _) =
   !ok
 
 (* Check at most one star event per path from initial to accepting *)
-(* TODO: more than one event per edge is possible *)
 let check_at_most_one_star_per_path dog =
   let rules, asserts = dog in
   let initial = initial_states_of dog in
   let accepting = accepting_states_of dog in
   let ok = ref true in
   let check_path path =
-    let stars = List.filter (function ExprEvent(Event(_,_,_,Star)) -> true | _ -> false) path in
+    let events = List.fold_right (fun expr acc -> (events_of_eventexpr expr) @ acc) path [] in
+    let stars = List.filter (function Event(_,_,_,Star) -> true | _ -> false) events in
     if List.length stars <= 1 then ()
     else (Printf.printf "More than one star event on path"; ok := false)
   in
