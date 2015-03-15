@@ -16,6 +16,7 @@ let events_of_path path =
   List.fold_right (fun expr acc -> (events_of_eventexpr expr) @ acc) path []
 
 (* Ensure every event using @e has a matching @s *)
+(* TODO: not checking load-store domain now *)
 let check_matching_start_for_each_end dog =
   let rules, asserts = dog in
   let initial = initial_states_of dog in
@@ -43,6 +44,8 @@ let check_matching_start_for_each_end dog =
   !ok
 
 (* Check at most one star event per path from initial to accepting *)
+(* TODO: not checking load-store domain; but possibly should check stronger
+ condition that no star events appear at all in load-store domain *)
 let check_at_most_one_star_per_path dog =
   let rules, asserts = dog in
   let initial = initial_states_of dog in

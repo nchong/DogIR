@@ -21,6 +21,9 @@ module G = Persistent.Digraph.ConcreteBidirectionalLabeled(Node)(Edge)
 let gvertex_filter pred g =
   G.fold_vertex (fun v acc -> if pred v then v::acc else acc) g []
 
+let trigger_states_of (_, asserts)  =
+  nodups (List.fold_right (fun (s, _) states -> s::states) asserts [])
+
 let accepting_states_of (_, asserts)  =
   nodups (List.fold_right (fun (_, s') states -> s'::states) asserts [])
 
@@ -40,13 +43,14 @@ let make_path_checker g =
   let path_checker = Check.create g in
   Check.check_path path_checker
 
-let extract_paths rules init accepting =
+(* Generate all paths from initial vertex to any vertex of the finals list *)
+let extract_paths rules init finals  =
   let adj = G.succ rules in
   let edge_between s s' =
     let _,e,_ = G.find_edge rules s s' in e
   in
   let rec visit s path =
-    if (List.mem s accepting) then
+    if (List.mem s finals) then
       [ path ] @ List.fold_right (fun s' paths -> (visit s' (path @ [edge_between s s'])) @ paths) (adj s) []
     else
       List.fold_right (fun s' paths -> (visit s' (path @ [edge_between s s'])) @ paths) (adj s) []
