@@ -8,4 +8,4 @@ $ ocamlbuild -libs graph -lflags -I,$HOME/.opam/system/lib/ocamlgraph -use-ocaml
 
 Simple test:
 
-$ cat mp_load-load.dog  | ./top.native
+$ cat tests/mp_load-load.dog  | ./top.native
