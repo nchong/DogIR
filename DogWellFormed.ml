@@ -12,24 +12,34 @@ let check_assert_states (rules, asserts) =
     (fun s -> if (G.mem_vertex rules s) then () else (Printf.printf "Error: state '%s' used in assert not found in DOG" s; ok := false)) assert_states in
   !ok
 
+let events_of_path path =
+  List.fold_right (fun expr acc -> (events_of_eventexpr expr) @ acc) path []
+
 (* Ensure every event using @e has a matching @s *)
-(* TODO: more than one event per edge is possible *)
-let check_matching_start_for_each_end (rules, _) =
-  let exprs = G.fold_edges_e (fun (_,expr,_) acc -> expr::acc) rules [] in
-  let ends = List.filter (function ExprEvent(Event(_,_,AtEnd,_)) -> true | _ -> false) exprs in
-  let ends = nodups ends in
-  let expected_starts = List.map (function
-    | ExprEvent(Event(e,alist,AtEnd,_)) -> ExprEvent(Event(e,alist,AtStart,StarNone))
-    | _ -> assert false (* unreachable *)) ends in
-  let exprs_ignoring_star = List.map (fun expr ->
-    match expr with
-    | ExprEvent(Event(e, alist, se, _)) -> ExprEvent(Event(e, alist, se, StarNone))
-    | _ -> expr) exprs in
+let check_matching_start_for_each_end dog =
+  let rules, asserts = dog in
+  let initial = initial_states_of dog in
+  let accepting = accepting_states_of dog in
   let ok = ref true in
-  let _ = List.iter (fun expr ->
-      if List.mem expr exprs_ignoring_star then ()
-      else (Printf.printf "Error: no matching @s event for %s" (string_of_eventexpr expr); ok := false)
-  ) expected_starts in
+  let check_path path =
+    let events = events_of_path path in
+    let ends = List.filter (function Event(_,_,AtEnd,_) -> true | _ -> false) events in
+    let ends = nodups ends in (* should be same length / no dups expected *)
+    let expected_starts = List.map (function
+      | Event(e,alist,AtEnd,_) -> Event(e,alist,AtStart,StarNone)
+      | _ -> assert false (* unreachable *)) ends in
+    let events_ignoring_star = List.map (function
+      | Event(e, alist, se, _) -> Event(e, alist, se, StarNone)
+      | _ as event -> event) events in
+    List.iter (fun event ->
+      if List.mem event events_ignoring_star then ()
+      else (Printf.printf "Error: no matching @s for %s" (string_of_event event); ok := false)
+    ) expected_starts
+  in
+  let _ = List.iter (fun i ->
+    let paths = extract_paths rules i accepting in
+    List.iter check_path paths
+  ) initial in
   !ok
 
 (* Check at most one star event per path from initial to accepting *)
@@ -39,7 +49,7 @@ let check_at_most_one_star_per_path dog =
   let accepting = accepting_states_of dog in
   let ok = ref true in
   let check_path path =
-    let events = List.fold_right (fun expr acc -> (events_of_eventexpr expr) @ acc) path [] in
+    let events = events_of_path path in
     let stars = List.filter (function Event(_,_,_,Star) -> true | _ -> false) events in
     if List.length stars <= 1 then ()
     else (Printf.printf "More than one star event on path"; ok := false)
