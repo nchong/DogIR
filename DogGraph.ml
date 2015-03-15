@@ -30,6 +30,9 @@ let accepting_states_of (_, asserts)  =
 let initial_states_of (rules, _) =
   gvertex_filter (fun v -> G.in_degree rules v = 0) rules
 
+let events_of_path path =
+  List.fold_right (fun expr acc -> (events_of_eventexpr expr) @ acc) path []
+
 type dog = G.t * dog_assert list
 
 let graph_of_rule_list rules =

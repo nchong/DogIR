@@ -12,9 +12,6 @@ let check_assert_states (rules, asserts) =
     (fun s -> if (G.mem_vertex rules s) then () else (Printf.printf "Error: state '%s' used in assert not found in DOG" s; ok := false)) assert_states in
   !ok
 
-let events_of_path path =
-  List.fold_right (fun expr acc -> (events_of_eventexpr expr) @ acc) path []
-
 (* Ensure every event using @e has a matching @s *)
 (* TODO: not checking load-store domain now *)
 let check_matching_start_for_each_end dog =
