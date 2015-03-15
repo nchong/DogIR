@@ -53,6 +53,16 @@ type dog_assert = state * state
 
 (* Helpers *)
 
+let events_of_eventexpr ev =
+  let rec aux ev acc =
+    match ev with
+    | ExprIdentifier _ | ExprOracle _ | ExprNum _ -> acc
+    | ExprNot e -> aux ev acc
+    | ExprBool (_,e1,e2) | ExprAssign (e1,e2) -> aux e1 (aux e2 acc)
+    | ExprEvent e -> e::acc
+  in
+  aux ev []
+
 (* slice string s from index [n:m] *)
 let slice s n m =
   assert (n <= m);
