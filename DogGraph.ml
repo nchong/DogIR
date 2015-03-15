@@ -32,6 +32,27 @@ type dog = G.t * dog_assert list
 let graph_of_rule_list rules =
   List.fold_right (fun (s,s',e) g -> G.add_edge_e g (s,e,s')) rules G.empty
 
+(* Reachability *)
+
+module Check = Path.Check(G)
+
+let make_path_checker g =
+  let path_checker = Check.create g in
+  Check.check_path path_checker
+
+let extract_paths rules init accepting =
+  let adj = G.succ rules in
+  let edge_between s s' =
+    let _,e,_ = G.find_edge rules s s' in e
+  in
+  let rec visit s path =
+    if (List.mem s accepting) then
+      [ path ] @ List.fold_right (fun s' paths -> (visit s' (path @ [edge_between s s'])) @ paths) (adj s) []
+    else
+      List.fold_right (fun s' paths -> (visit s' (path @ [edge_between s s'])) @ paths) (adj s) []
+  in
+  visit init []
+
 (* Dot interface *)
 
 module Dot = Graph.Graphviz.Dot(struct
