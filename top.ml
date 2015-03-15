@@ -16,7 +16,10 @@ let main () =
         exit 1
     in
     let _ = check_wellformed dog in
+    let rules, _ = dog in
     dottify dog "mygraph.dot";
+    G.iter_edges_e (fun (_,e,_) -> let _ = print_eventexpr e; print_string "\n" in ()) rules;
+  (*bell_of_dog dog;*)
   with End_of_file -> exit 0
       
 let _ = Printexc.print main ()

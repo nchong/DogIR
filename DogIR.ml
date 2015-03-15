@@ -38,7 +38,6 @@ type boolop =
 
 type eventexpr =
 | ExprIdentifier of identifier
-| ExprOracle of oracle
 | ExprNum of number
 | ExprNot of eventexpr
 | ExprBool of boolop * eventexpr * eventexpr
@@ -56,7 +55,7 @@ type dog_assert = state * state
 let events_of_eventexpr ev =
   let rec aux ev acc =
     match ev with
-    | ExprIdentifier _ | ExprOracle _ | ExprNum _ -> acc
+    | ExprIdentifier _ | ExprNum _ -> acc
     | ExprNot e -> aux ev acc
     | ExprBool (_,e1,e2) | ExprAssign (e1,e2) -> aux e1 (aux e2 acc)
     | ExprEvent e -> e::acc
@@ -125,7 +124,6 @@ let pp_boolop ppf = function
 
 let rec pp_eventexpr ppf = function
 | ExprIdentifier x -> Format.fprintf ppf "ExprIdentifier(%a)" pp_string x
-| ExprOracle x -> Format.fprintf ppf "ExprOracle(%a)" pp_oracle x
 | ExprNum n -> Format.fprintf ppf "ExprNum(%d)" n
 | ExprNot e -> Format.fprintf ppf "ExprNot(%a)" pp_eventexpr e
 | ExprBool (op,e1,e2) -> Format.fprintf ppf "ExprBool(%a,%a,%a)" pp_boolop op pp_eventexpr e1 pp_eventexpr e2
@@ -169,7 +167,6 @@ let string_of_event = function
 
 let rec string_of_eventexpr = function
 | ExprIdentifier x -> Format.sprintf "%s" x
-| ExprOracle x -> Format.sprintf "%s" (string_of_oracle x)
 | ExprNum n -> Format.sprintf "%d" n
 | ExprNot e -> Format.sprintf "!(%s)" (string_of_eventexpr e)
 | ExprBool (op,e1,e2) -> Format.sprintf "(%s %s %s)" (string_of_eventexpr e1) (string_of_boolop op) (string_of_eventexpr e2)
