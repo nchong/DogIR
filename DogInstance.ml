@@ -10,7 +10,7 @@ let rec translate_event_actual mapping = function
       List.assoc x mapping
     with Not_found -> raise (InstantiationError (string_of_oracle x))
   in
-  EventActualOracle x'
+  EventActualAttribute x' (* EventActualOracle x' *)
 | EventActualNot x -> EventActualNot (translate_event_actual mapping x)
 | _ as x -> x
 
