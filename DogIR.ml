@@ -17,7 +17,7 @@ type event_symbol = identifier
 type event_actual =
 | EventActualOracle of oracle
 | EventActualAttribute of identifier
-| EventActualNot  of event_actual
+| EventActualNot of event_actual
 
 type star =
 | StarNone

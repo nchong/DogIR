@@ -38,6 +38,15 @@ type dog = G.t * dog_assert list
 let graph_of_rule_list rules =
   List.fold_right (fun (s,s',e) g -> G.add_edge_e g (s,e,s')) rules G.empty
 
+(* Copy graphs by mapping edges *)
+
+module P(G:Sig.P) = struct
+  module G = G
+  let empty () = G.empty
+  let add_edge_e = G.add_edge_e
+end
+module CopyWithEdgeMap = Gmap.Edge(G)(struct include G include P(G) end)
+
 (* Reachability *)
 
 module Check = Path.Check(G)
@@ -75,6 +84,7 @@ module Dot = Graph.Graphviz.Dot(struct
   let graph_attributes _ = []
 end)
 
+(* TODO: should deal with assert arrows too *)
 let dottify dog fname =
   let (rules, _) = dog in
   let file = open_out_bin fname in
