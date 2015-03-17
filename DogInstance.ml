@@ -1,16 +1,11 @@
 open DogIR
 open DogGraph
 
-exception InstantiationError of string
-
 let rec translate_event_actual mapping = function
 | EventActualOracle x ->
-  let x' =
-    try
-      List.assoc x mapping
-    with Not_found -> raise (InstantiationError (string_of_oracle x))
-  in
-  EventActualAttribute x' (* EventActualOracle x' *)
+  let keys = List.map fst mapping in
+  if (List.mem x keys) then EventActualAttribute (List.assoc x mapping)
+  else EventActualOracle x
 | EventActualNot x -> EventActualNot (translate_event_actual mapping x)
 | _ as x -> x
 
