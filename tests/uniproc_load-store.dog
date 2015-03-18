@@ -2,17 +2,17 @@
 
 (* let BE = reset || DSB()@s || ST(A0,!D#)@s *)
 
-L1 -> L2: ((selectBE && BE) && (start := 1));
+L1 -> L2: selectBE && BE && start := 1;
 L2 -> L3: LD(A0,D0)@s;
 L3 -> L4: ST(A0,D1)@s;
 L4 -> L5: COMPLETE;
 
 (* escape *)
 L1 -> L0: ST(A0,D1)@s;
-L2 -> L0: (ST(A0,D1)@s || BE);
-L3 -> L0: ((LD(A0,D?)@s || ST(A0,!D1)@s) || BE);
+L2 -> L0: ST(A0,D1)@s || BE;
+L3 -> L0: LD(A0,D?)@s || ST(A0,!D1)@s || BE;
 
-M1 -> M2: (start == 1);
+M1 -> M2: start == 1;
 M2 -> M3: WR(A0,D1)@s*;
 M3 -> M6: RD(A0,D0)@s*-;
 M2 -> M4: RD(A0,D0)@s*;

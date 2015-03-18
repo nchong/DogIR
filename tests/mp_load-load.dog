@@ -2,12 +2,12 @@
 
 (*let BE = Reset || DSB@s || ST(A0,!D0)@s*)
 
-L1 -> L2: (BE && (start := 1));
+L1 -> L2: BE && start := 1;
 L2 -> L3: LD(A0,D1)@s;
 L3 -> L4: LD(A1,D0)@s;
 L4 -> L5: COMPLETE;
 
-M1 -> M2: (start == 1);
+M1 -> M2: start == 1;
 M2 -> M3: RD(A0,D1)@s;
 M2 -> M4: RD(A1,D0)@s;
 M3 -> M5: RD(A1,D0)@s;

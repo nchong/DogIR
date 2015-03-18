@@ -16,6 +16,12 @@ open DogGraph
 %token ASSERT IMPLIES ARROW COLON
 %token EOF
 
+%left OR
+%left AND
+%left EQ
+%left ASSIGN
+%nonassoc BANG
+
 %type <DogGraph.dog> main
 %start main
 
@@ -38,11 +44,12 @@ eventexpr:
 | NAME { ExprIdentifier($1) }
 | NUM { ExprNum($1) }
 | BANG eventexpr { ExprNot($2) }
-| LPAR eventexpr OR eventexpr RPAR { ExprBool(BoolOr, $2, $4) }
-| LPAR eventexpr AND eventexpr RPAR { ExprBool(BoolAnd, $2, $4) }
-| LPAR eventexpr EQ eventexpr RPAR { ExprBool(BoolEq, $2, $4) }
-| LPAR eventexpr ASSIGN eventexpr RPAR { ExprAssign($2, $4) }
+| eventexpr OR eventexpr { ExprBool(BoolOr, $1, $3) }
+| eventexpr AND eventexpr { ExprBool(BoolAnd, $1, $3) }
+| eventexpr EQ eventexpr { ExprBool(BoolEq, $1, $3) }
+| eventexpr ASSIGN eventexpr { ExprAssign($1, $3) }
 | event { ExprEvent($1) }
+| LPAR eventexpr RPAR { $2 }
 
 event:
 | COMPLETE { EventComplete }
