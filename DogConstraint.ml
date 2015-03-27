@@ -5,25 +5,47 @@ open Lib
 (* Assume at most one event per eventexpr edge *)
 
 type star_constraint =
+| ConstraintFalse
 | ConstraintTrue
 | ConstraintExists of event                  (* e \in Ev *)
 | ConstraintStarOrdered of event * event     (* (e1,e2) \in     so *)
 | ConstraintNot of star_constraint
-| ConstraintAnd of star_constraint * star_constraint
-| ConstraintOr of star_constraint * star_constraint
+| ConstraintAnd of star_constraint list
+| ConstraintOr of star_constraint list
+
+let rec notstar = function
+| ConstraintFalse -> ConstraintTrue
+| ConstraintTrue -> ConstraintFalse
+| ConstraintNot c -> c
+| ConstraintAnd cs -> ConstraintOr (List.map notstar cs)
+| ConstraintOr cs -> ConstraintAnd (List.map notstar cs)
+| _ as c -> ConstraintNot c
+
+let flatten termof xs =
+  let rec aux acc = function
+    | [] -> acc
+    | c::cs -> aux (acc @ termof c) cs
+  in
+  aux [] xs
 
 let conjunct constraints =
   match constraints with
   | [] -> ConstraintTrue
-  | c::cs -> List.fold_left (fun x expr -> ConstraintAnd (x, expr)) c cs
+  | _ -> ConstraintAnd (flatten (function | ConstraintAnd cs -> cs | _ as c -> [c]) constraints)
+
+let disjunct constraints =
+  match constraints with
+  | [] -> ConstraintTrue
+  | _ -> ConstraintOr (flatten (function | ConstraintOr cs -> cs | _ as c -> [c]) constraints)
 
 let rec pp_star_constraint ppf = function
+| ConstraintFalse -> Format.fprintf ppf "ConstraintFalse"
 | ConstraintTrue -> Format.fprintf ppf "ConstraintTrue"
-| ConstraintExists e -> Format.fprintf ppf "ConstraintExists(%a)" pp_event e
-| ConstraintStarOrdered (e1, e2) -> Format.fprintf ppf "ConstraintStarOrdered(%a, %a)" pp_event e1 pp_event e2
-| ConstraintNot x -> Format.fprintf ppf "ConstraintNot(%a)" pp_star_constraint x
-| ConstraintAnd (x1, x2) -> Format.fprintf ppf "ConstraintAnd(%a, %a)" pp_star_constraint x1 pp_star_constraint x2
-| ConstraintOr (x1, x2) -> Format.fprintf ppf "ConstraintOr(%a, %a)" pp_star_constraint x1 pp_star_constraint x2
+| ConstraintExists e -> Format.fprintf ppf "ConstraintExists(@[%a@])" pp_event e
+| ConstraintStarOrdered (e1, e2) -> Format.fprintf ppf "ConstraintStarOrdered(@[%a,@ %a@])" pp_event e1 pp_event e2
+| ConstraintNot c -> Format.fprintf ppf "ConstraintNot(@[%a@])" pp_star_constraint c
+| ConstraintAnd cs -> Format.fprintf ppf "ConstraintAnd([@[%a@]])" (pp_print_list pp_star_constraint) cs
+| ConstraintOr cs -> Format.fprintf ppf "ConstraintOr([@[%a@]])" (pp_print_list pp_star_constraint) cs
 
 let star_constraint_of e1 e2 =
   match e1, e2 with
@@ -85,9 +107,9 @@ let expr_of_path rules accepting path =
     let nots = List.map (fun s ->
       let path' = path @ [s] in
       let expr = expr_of_edgepath (edges_of_path rules path') in
-      ConstraintNot expr
+      notstar expr
     ) adj' in
-    ConstraintAnd (edgeexpr, conjunct nots)
+    conjunct (edgeexpr :: nots)
 
 let analyse dog =
   let rules, _ = dog in
@@ -98,10 +120,11 @@ let analyse dog =
   let paths = extract_paths2 rules (List.nth initial 0) accepting in
   let paths' = List.filter (fun p -> not (has_preload rules p)) paths in (* no paths with preloads *)
   let constraints = List.map (expr_of_path rules accepting) paths' in
+  let full = disjunct constraints in
   let _ = 
     List.iter (fun path -> List.iter print_string path; print_string "\n") paths;
     print_string "\n";
     List.iter (fun path -> List.iter print_string path; print_string "\n") paths';
     print_string "\n";
-    List.iter (fun x -> pp_star_constraint Format.std_formatter x; print_string "\n") constraints
+    pp_star_constraint Format.std_formatter full;
   in ()

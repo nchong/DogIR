@@ -17,4 +17,4 @@ let allpairs l =
 (* available in 4.02.0 *)
 let rec pp_print_list pp_v ppf = function
   | [] -> ()
-  | x::xs -> Format.fprintf ppf "%a;" pp_v x; pp_print_list pp_v ppf xs
+  | x::xs -> Format.fprintf ppf "@[%a;@]" pp_v x; pp_print_list pp_v ppf xs
