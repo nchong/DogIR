@@ -1,4 +1,5 @@
 (* Dog IR *)
+open Lib
 
 type number = int
 type identifier = string
@@ -36,6 +37,10 @@ type boolop =
 | BoolAnd
 | BoolEq
 
+type arithop =
+| ArithPlus
+| ArithMinus
+
 type eventexpr =
 | ExprIdentifier of identifier
 | ExprNum of number
@@ -43,6 +48,7 @@ type eventexpr =
 | ExprBool of boolop * eventexpr * eventexpr
 | ExprAssign of eventexpr * eventexpr
 | ExprEvent of event
+(* ExprArith of arithop * eventexpr * eventexpr *)
 
 type state = string
 
@@ -107,11 +113,6 @@ let pp_star ppf = function
 | StarMinus -> Format.fprintf ppf "StarMinus"
 | StarNotPlus -> Format.fprintf ppf "StarNotPlus"
 | StarNotMinus -> Format.fprintf ppf "StarNotMinus"
-
-(* available in 4.02.0 *)
-let rec pp_print_list pp_v ppf = function
-  | [] -> ()
-  | x::xs -> Format.fprintf ppf "%a;" pp_v x; pp_print_list pp_v ppf xs
 
 let pp_event ppf = function
 | EventComplete -> Format.fprintf ppf "EventComplete"

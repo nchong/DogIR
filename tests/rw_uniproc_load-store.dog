@@ -1,0 +1,12 @@
+(* Uniprocessor Load-Store *)
+
+M1 -> M2: start == 1;
+M2 -> M3: WR(A0,D1)@s*;
+M3 -> M6: RD(A0,D0)@s*-;
+M2 -> M4: RD(A0,D0)@s*;
+M4 -> M5: WR(A0,D1)@s*!+;
+M4 -> M6: RD(A0,D0)@s;
+M5 -> M6: RD(A0,D0)@s;
+
+ASSERT M1 |-> M4;
+ASSERT M1 |-> M6;

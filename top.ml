@@ -3,6 +3,7 @@ open DogGraph
 open DogWellFormed
 open DogInstance
 open Lexing
+open DogConstraint
 
 let main () =
   try
@@ -17,14 +18,7 @@ let main () =
         exit 1
     in
     let _ = check_wellformed dog in
-    let dog' = instantiate dog [
-      (Oracle("A0"), "x");
-      (Oracle("D0"), "r0");
-    ] in
-    let rules, _ = dog in
-    dottify dog "mygraph.dot";
-    dottify dog' "mygraph2.dot";
-    G.iter_edges_e (fun (_,e,_) -> let _ = print_eventexpr e; print_string "\n" in ()) rules;
+    let _ = analyse dog in ()
   with End_of_file -> exit 0
       
 let _ = Printexc.print main ()

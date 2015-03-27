@@ -69,6 +69,24 @@ let extract_paths rules init finals  =
   in
   visit init []
 
+(* returns a list of accepting paths 
+   each path is a list [S0;S1;...;Sn] with S0 = init and Sn \in finals *)
+let extract_paths2 rules init finals  =
+  let adj = G.succ rules in
+  let rec visit s path =
+    if (List.mem s finals) then
+      [ path ] @ List.fold_right (fun s' paths -> (visit s' (path @ [s'])) @ paths) (adj s) []
+    else
+      List.fold_right (fun s' paths -> (visit s' (path @ [s'])) @ paths) (adj s) []
+  in
+  visit init [init]
+
+let edges_of_path rules path =
+  let edge_between s s' =
+    let _,e,_ = G.find_edge rules s s' in e
+  in
+  List.map (fun (s, s') -> edge_between s s') (allpairs path)
+
 (* Dot interface *)
 
 module Dot = Graph.Graphviz.Dot(struct
