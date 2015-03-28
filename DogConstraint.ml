@@ -128,7 +128,6 @@ let expr_of_path rules accepting path =
 let analyse dog =
   let rules, _ = dog in
   let initial = initial_states_of dog in
-  let _ = List.iter (print_string) initial in
   let accepting = accepting_states_of dog in
   let _ = assert (List.length initial = 1) in
   let paths = extract_paths2 rules (List.nth initial 0) accepting in
@@ -136,10 +135,11 @@ let analyse dog =
   let constraints = List.map (expr_of_path rules accepting) paths' in
   let full = disjunct constraints in
   let _ = 
-    List.iter (fun path -> List.iter print_string path; print_string "\n") paths;
-    print_string "\n";
-    List.iter (fun path -> List.iter print_string path; print_string "\n") paths';
-    print_string "\n";
-    print_string (string_of_constraint full);
-    print_string "\n";
+    Format.printf "All accepting paths\n";
+    List.iter (fun path -> Format.printf "%s" (String.concat ", " path); Format.printf "\n") paths;
+    Format.printf "\nFiltered paths\n";
+    List.iter (fun path -> Format.printf "%s" (String.concat ", " path); Format.printf "\n") paths';
+    Format.printf "\nComputed constraint\n";
+    Format.printf "%s" (string_of_constraint full);
+    Format.printf "\n";
   in ()
