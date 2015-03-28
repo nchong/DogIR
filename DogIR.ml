@@ -146,8 +146,8 @@ let string_of_oracle = function
 | OracleTrue x -> Format.sprintf "%s?#" x
 
 let string_of_startend = function
-| AtStart -> "%@s"
-| AtEnd   -> "%@e"
+| AtStart -> "@s"
+| AtEnd   -> "@e"
 
 let string_of_star = function
 | StarNone -> ""

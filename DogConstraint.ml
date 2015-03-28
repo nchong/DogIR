@@ -47,14 +47,28 @@ let rec pp_star_constraint ppf = function
 | ConstraintAnd cs -> Format.fprintf ppf "ConstraintAnd([@[%a@]])" (pp_print_list pp_star_constraint) cs
 | ConstraintOr cs -> Format.fprintf ppf "ConstraintOr([@[%a@]])" (pp_print_list pp_star_constraint) cs
 
+let rec string_of_constraint = function
+| ConstraintFalse -> Format.sprintf "FALSE"
+| ConstraintTrue -> Format.sprintf "TRUE"
+| ConstraintExists e -> Format.sprintf "@[%s IN EV@]" (string_of_event e)
+| ConstraintStarOrdered (e1, e2) -> Format.sprintf "@[(%s,@ %s) IN SO@]" (string_of_event e1) (string_of_event e2)
+| ConstraintNot c -> Format.sprintf "NOT(@[%s@])" (string_of_constraint c)
+| ConstraintAnd cs -> Format.sprintf "(@[%s@])" (String.concat " /\\ " (List.map string_of_constraint cs))
+| ConstraintOr cs -> Format.sprintf "(@[%s@])" (String.concat " || " (List.map string_of_constraint cs))
+
+let rmstar = function
+| Event (e,alist,se,_) -> Event (e,alist,se,StarNone)
+| _ as e -> e
+
 let star_constraint_of e1 e2 =
+  let e1', e2' = rmstar e1, rmstar e2 in
   match e1, e2 with
   | Event (_,_,_,Star), Event (_,_,_,star) -> begin
     match star with
-    | StarPlus -> ConstraintStarOrdered (e1, e2)
-    | StarMinus -> ConstraintStarOrdered (e2, e1)
-    | StarNotPlus -> ConstraintNot (ConstraintStarOrdered (e1, e2))
-    | StarNotMinus -> ConstraintNot (ConstraintStarOrdered (e2, e1))
+    | StarPlus -> ConstraintStarOrdered (e1', e2')
+    | StarMinus -> ConstraintStarOrdered (e2', e1')
+    | StarNotPlus -> ConstraintNot (ConstraintStarOrdered (e1', e2'))
+    | StarNotMinus -> ConstraintNot (ConstraintStarOrdered (e2', e1'))
     | _ -> ConstraintTrue
   end
   | _, _ -> ConstraintTrue
@@ -126,5 +140,6 @@ let analyse dog =
     print_string "\n";
     List.iter (fun path -> List.iter print_string path; print_string "\n") paths';
     print_string "\n";
-    pp_star_constraint Format.std_formatter full;
+    print_string (string_of_constraint full);
+    print_string "\n";
   in ()
