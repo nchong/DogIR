@@ -54,7 +54,7 @@ let rec string_of_constraint = function
 | ConstraintStarOrdered (e1, e2) -> Format.sprintf "@[(%s,@ %s) IN SO@]" (string_of_event e1) (string_of_event e2)
 | ConstraintNot c -> Format.sprintf "NOT(@[%s@])" (string_of_constraint c)
 | ConstraintAnd cs -> Format.sprintf "(@[%s@])" (String.concat " /\\ " (List.map string_of_constraint cs))
-| ConstraintOr cs -> Format.sprintf "(@[%s@])" (String.concat " || " (List.map string_of_constraint cs))
+| ConstraintOr cs -> Format.sprintf "(@[%s@])" (String.concat " \\/ " (List.map string_of_constraint cs))
 
 let rmstar = function
 | Event (e,alist,se,_) -> Event (e,alist,se,StarNone)
@@ -124,6 +124,16 @@ let expr_of_path rules accepting path =
       notstar expr
     ) adj' in
     conjunct (edgeexpr :: nots)
+
+let starconstraint_of_dog dog init =
+  let rules, _ = dog in
+  let initial = initial_states_of dog in
+  let accepting = accepting_states_of dog in
+  let _ = assert (List.mem init initial) in
+  let paths = extract_paths2 rules init accepting in
+  let paths' = List.filter (fun p -> not (has_preload rules p)) paths in (* no paths with preloads *)
+  let constraints = List.map (expr_of_path rules accepting) paths' in
+  disjunct constraints
 
 let analyse dog =
   let rules, _ = dog in
