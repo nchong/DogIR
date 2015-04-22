@@ -78,9 +78,14 @@ star:
 | { StarNone }
 
 dog_assert_list:
-| dog_assert SEMI dog_assert_list { $1::$3 }
-| dog_assert {[$1]}
+| dog_assert SEMI dog_assert_list { $1 @ $3 }
+| dog_assert {$1}
 | {[]}
 
 dog_assert:
-| ASSERT ORACLE IMPLIES ORACLE { ($2, $4) }
+| ASSERT ORACLE IMPLIES ORACLE { [($2, $4)] }
+| ASSERT ORACLE IMPLIES LPAR state_list RPAR { (tr_dog_assert $2 $5) }
+
+state_list:
+| ORACLE OR state_list {$1::$3}
+| ORACLE {[$1]}

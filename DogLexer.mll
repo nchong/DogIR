@@ -55,6 +55,5 @@ and token = parse
 {
 let token lexbuf =
   let tok = token lexbuf in
-(*let _ = Printf.eprintf "Lexed '%s'\n" (lexeme lexbuf) in*)
   tok
 }

@@ -87,6 +87,9 @@ let tr_oracle s =
   | '?' -> OracleTrue sym
   | _   -> Oracle s
 
+let tr_dog_assert s ts =
+  List.map (fun t -> (s,t)) ts
+
 (* IR pretty printing *)
 
 let pp_string ppf s =

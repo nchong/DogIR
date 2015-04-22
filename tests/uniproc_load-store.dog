@@ -20,5 +20,4 @@ M4 -> M5: WR(A0,D1)@s*!+;
 M4 -> M6: RD(A0,D0)@s;
 M5 -> M6: RD(A0,D0)@s;
 
-ASSERT L5 |-> M4;
-ASSERT L5 |-> M6;
+ASSERT L5 |-> (M4 || M6);
