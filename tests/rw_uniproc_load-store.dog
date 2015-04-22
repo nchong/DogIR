@@ -8,5 +8,4 @@ M4 -> M5: WR(A0,D1)@s*!+;
 M4 -> M6: RD(A0,D0)@s;
 M5 -> M6: RD(A0,D0)@s;
 
-ASSERT M1 |-> M4;
-ASSERT M1 |-> M6;
+ASSERT M1 |-> (M4 || M6);
