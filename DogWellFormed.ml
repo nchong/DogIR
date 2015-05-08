@@ -9,7 +9,7 @@ let check_assert_states (rules, asserts) =
   let assert_states = nodups (List.fold_right (fun (s, s') states -> [s;s'] @ states) asserts []) in
   let ok = ref true in
   let _ = List.iter 
-    (fun s -> if (G.mem_vertex rules s) then () else (Printf.printf "Error: state '%s' used in assert not found in DOG" s; ok := false)) assert_states in
+    (fun s -> if (G.mem_vertex rules s) then () else (Printf.printf "Error: state '%s' used in assert not found in dog\n" s; ok := false)) assert_states in
   !ok
 
 (* Ensure every event using @e has a matching @s *)
@@ -31,7 +31,7 @@ let check_matching_start_for_each_end dog =
       | _ as event -> event) events in
     List.iter (fun event ->
       if List.mem event events_ignoring_star then ()
-      else (Printf.printf "Error: no matching @s for %s" (string_of_event event); ok := false)
+      else (Printf.printf "Error: no matching @s for %s\n" (string_of_event event); ok := false)
     ) expected_starts
   in
   let _ = List.iter (fun i ->
