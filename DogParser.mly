@@ -7,7 +7,7 @@ open DogGraph
 %token <string> EVENTSYM
 %token <string> NAME
 %token <int> NUM
-%token COMPLETE
+%token LET LETEQ COMPLETE
 %token BANG
 %token ASSIGN OR AND EQ
 %token LPAR RPAR
@@ -22,13 +22,22 @@ open DogGraph
 %left ASSIGN
 %nonassoc BANG
 
-%type <DogGraph.dog> main
+%type <DogGraph.dog_t> main
 %start main
 
 %%
 
 main:
-| rule_list dog_assert_list EOF { (graph_of_rule_list $1), $2 }
+| letdef_list rule_list dog_assert_list EOF { { letdefs = $1; rules = (graph_of_rule_list $2); asserts = $3 } }
+
+letdef_list:
+| letdef SEMI letdef_list { $1::$3 }
+| letdef {[$1]}
+| {[]}
+
+letdef:
+| LET EVENTSYM LETEQ eventexpr { ($2, $4) }
+| LET NAME LETEQ eventexpr { ($2, $4) }
 
 rule_list:
 | rule SEMI rule_list { $1::$3 }

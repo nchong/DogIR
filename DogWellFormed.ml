@@ -5,7 +5,8 @@ open Lib
 exception NotWellFormedError of string
 
 (* Ensure every assert of the form s |-> s' uses existing states s and s' *)
-let check_assert_states (rules, asserts) =
+let check_assert_states dog =
+  let rules, asserts = dog.rules, dog.asserts in
   let assert_states = nodups (List.fold_right (fun (s, s') states -> [s;s'] @ states) asserts []) in
   let ok = ref true in
   let _ = List.iter 
@@ -15,7 +16,7 @@ let check_assert_states (rules, asserts) =
 (* Ensure every event using @e has a matching @s *)
 (* TODO: not checking load-store domain now *)
 let check_matching_start_for_each_end dog =
-  let rules, asserts = dog in
+  let rules, asserts = dog.rules, dog.asserts in
   let initial = initial_states_of dog in
   let accepting = accepting_states_of dog in
   let ok = ref true in
@@ -44,7 +45,7 @@ let check_matching_start_for_each_end dog =
 (* TODO: not checking load-store domain; but possibly should check stronger
  condition that no star events appear at all in load-store domain *)
 let check_at_most_one_star_per_path dog =
-  let rules, asserts = dog in
+  let rules, asserts = dog.rules, dog.asserts in
   let initial = initial_states_of dog in
   let accepting = accepting_states_of dog in
   let ok = ref true in

@@ -33,6 +33,8 @@ and token = parse
 | "||"            { OR }
 | "&&"            { AND }
 | "=="            { EQ }
+| "="             { LETEQ }
+| "LET"           { LET }
 | "COMPLETE"      { COMPLETE }
 | "@s"            { ATSTART }
 | "@e"            { ATEND }

@@ -49,7 +49,7 @@ let main () =
       eprintf "Dog well-formed error: %s\n" msg;
       exit 1
   in
-  let rules, _ = dog in
+  let rules = dog.rules in
   if (!emitdot <> "") then (
     dottify dog !emitdot
   );

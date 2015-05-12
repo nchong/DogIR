@@ -1,6 +1,6 @@
 (* MP Load-Load *)
 
-(*let BE = Reset || DSB@s || ST(A0,!D0)@s*)
+LET BE = 5;
 
 L1 -> L2: BE && start := 1;
 L2 -> L3: LD(A0,D1)@s;

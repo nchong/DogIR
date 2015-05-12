@@ -126,7 +126,7 @@ let expr_of_path rules accepting path =
     conjunct (edgeexpr :: nots)
 
 let starconstraint_of_dog dog init =
-  let rules, _ = dog in
+  let rules = dog.rules in
   let initial = initial_states_of dog in
   let accepting = accepting_states_of dog in
   let _ = assert (List.mem init initial) in
@@ -136,7 +136,7 @@ let starconstraint_of_dog dog init =
   disjunct constraints
 
 let analyse dog =
-  let rules, _ = dog in
+  let rules = dog.rules in
   let initial = initial_states_of dog in
   let accepting = accepting_states_of dog in
   let _ = assert (List.length initial = 1) in

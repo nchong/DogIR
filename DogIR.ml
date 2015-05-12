@@ -50,6 +50,8 @@ type eventexpr =
 | ExprEvent of event
 (* ExprArith of arithop * eventexpr * eventexpr *)
 
+type letdef = identifier * eventexpr
+
 type state = string
 
 type rule = state * state * eventexpr

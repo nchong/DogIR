@@ -21,19 +21,24 @@ module G = Persistent.Digraph.ConcreteBidirectionalLabeled(Node)(Edge)
 let gvertex_filter pred g =
   G.fold_vertex (fun v acc -> if pred v then v::acc else acc) g []
 
-let trigger_states_of (_, asserts)  =
-  nodups (List.fold_right (fun (s, _) states -> s::states) asserts [])
+type dog_t = {
+  letdefs: letdef list;
+  rules : G.t;
+  asserts: dog_assert list;
+}
 
-let accepting_states_of (_, asserts)  =
-  nodups (List.fold_right (fun (_, s') states -> s'::states) asserts [])
+let trigger_states_of dog =
+  nodups (List.fold_right (fun (s, _) states -> s::states) dog.asserts [])
 
-let initial_states_of (rules, _) =
+let accepting_states_of dog =
+  nodups (List.fold_right (fun (_, s') states -> s'::states) dog.asserts [])
+
+let initial_states_of dog =
+  let rules = dog.rules in
   gvertex_filter (fun v -> G.in_degree rules v = 0) rules
 
 let events_of_path path =
   List.fold_right (fun expr acc -> (events_of_eventexpr expr) @ acc) path []
-
-type dog = G.t * dog_assert list
 
 let graph_of_rule_list rules =
   List.fold_right (fun (s,s',e) g -> G.add_edge_e g (s,e,s')) rules G.empty
@@ -104,6 +109,6 @@ end)
 
 (* TODO: should deal with assert arrows too *)
 let dottify dog fname =
-  let (rules, _) = dog in
+  let rules = dog.rules in
   let file = open_out_bin fname in
   Dot.output_graph file rules
