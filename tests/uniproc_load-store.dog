@@ -1,6 +1,6 @@
 (* Uniprocessor Load-Store *)
 
-(* let BE = reset || DSB()@s || ST(A0,!D#)@s *)
+let BE = reset || DSB()@s || ST(A0,!D#)@s
 
 L1 -> L2: selectBE && BE && start := 1;
 L2 -> L3: LD(A0,D0)@s;
