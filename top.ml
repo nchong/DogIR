@@ -11,6 +11,7 @@ let dogfile = ref ""
 let soinit = ref ""
 let emitir = ref false
 let emitdot = ref ""
+let expand_lets = ref false
 
 let ignorecmd (s:string) =
   printf "Warning: ignoring cmd arg '%s'\n" s
@@ -20,6 +21,7 @@ let options = [
   ("-so", Arg.String (fun x -> soinit := x), "Compute starorder from initial state");
   ("-emitir", Arg.Set emitir, "Emit IR");
   ("-emitdot", Arg.String (fun x -> emitdot := x), "Dotty representation to file");
+  ("-expand-lets", Arg.Set expand_lets, "Expand let definitions");
 ]
 
 let prog =
@@ -43,6 +45,7 @@ let main () =
       eprintf "Parse error: file %s line %i unexpected '%s'\n" start_loc.pos_fname start_loc.pos_lnum lxm;
       exit 1
   in
+  let dog = if (!expand_lets) then expand_letdefs dog else dog in
   let _ =
     try check_wellformed dog
     with NotWellFormedError msg ->

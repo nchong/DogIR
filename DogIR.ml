@@ -60,6 +60,16 @@ type dog_assert = state * state
 
 (* Helpers *)
 
+let rec substitute (find_id, replace_expr) eventexpr =
+  let aux = substitute (find_id, replace_expr) in
+  match eventexpr with
+  | ExprIdentifier id -> if id = find_id then replace_expr else eventexpr
+  | ExprNum _ -> eventexpr
+  | ExprNot e -> ExprNot (aux e)
+  | ExprBool (b,e1,e2) -> ExprBool (b, (aux e1), (aux e2))
+  | ExprAssign (e1, e2) -> ExprAssign ((aux e1), (aux e2))
+  | ExprEvent ev -> eventexpr
+
 let events_of_eventexpr ev =
   let rec aux ev acc =
     match ev with

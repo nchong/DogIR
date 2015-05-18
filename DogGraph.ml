@@ -52,6 +52,16 @@ module P(G:Sig.P) = struct
 end
 module CopyWithEdgeMap = Gmap.Edge(G)(struct include G include P(G) end)
 
+let expand_letdefs dog =
+  let letdefs, rules, asserts = dog.letdefs, dog.rules, dog.asserts in
+  let translate_edge edge =
+    let (s,e,s') = edge in
+    let e' = List.fold_right (fun ld -> substitute ld) letdefs e in
+    (s,e',s')
+  in
+  let rules' = CopyWithEdgeMap.map translate_edge rules in
+  {letdefs = []; rules = rules'; asserts}
+
 (* Reachability *)
 
 module Check = Path.Check(G)
