@@ -68,7 +68,7 @@ let rec substitute (find_id, replace_expr) eventexpr =
   | ExprNot e -> ExprNot (aux e)
   | ExprBool (b,e1,e2) -> ExprBool (b, (aux e1), (aux e2))
   | ExprAssign (e1, e2) -> ExprAssign ((aux e1), (aux e2))
-  | ExprEvent ev -> eventexpr
+  | ExprEvent ev -> eventexpr (* find_id cannot appear in ev *)
 
 let events_of_eventexpr ev =
   let rec aux ev acc =

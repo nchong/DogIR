@@ -4,14 +4,15 @@ open Lib
 
 (* Assume at most one event per eventexpr edge *)
 
-type star_constraint =
+type dog_constraint =
 | ConstraintFalse
 | ConstraintTrue
 | ConstraintExists of event                  (* e \in Ev *)
-| ConstraintStarOrdered of event * event     (* (e1,e2) \in     so *)
-| ConstraintNot of star_constraint
-| ConstraintAnd of star_constraint list
-| ConstraintOr of star_constraint list
+| ConstraintStarOrdered of event * event     (* (e1,e2) \in so *)
+| ConstraintProgOrdered of event * event     (* (e1,e2) \in po *)
+| ConstraintNot of dog_constraint
+| ConstraintAnd of dog_constraint list
+| ConstraintOr of dog_constraint list
 
 let rec notstar = function
 | ConstraintFalse -> ConstraintTrue
@@ -43,6 +44,7 @@ let rec pp_star_constraint ppf = function
 | ConstraintTrue -> Format.fprintf ppf "ConstraintTrue"
 | ConstraintExists e -> Format.fprintf ppf "ConstraintExists(@[%a@])" pp_event e
 | ConstraintStarOrdered (e1, e2) -> Format.fprintf ppf "ConstraintStarOrdered(@[%a,@ %a@])" pp_event e1 pp_event e2
+| ConstraintProgOrdered (e1, e2) -> Format.fprintf ppf "ConstraintProgOrdered(@[%a,@ %a@])" pp_event e1 pp_event e2
 | ConstraintNot c -> Format.fprintf ppf "ConstraintNot(@[%a@])" pp_star_constraint c
 | ConstraintAnd cs -> Format.fprintf ppf "ConstraintAnd([@[%a@]])" (pp_print_list pp_star_constraint) cs
 | ConstraintOr cs -> Format.fprintf ppf "ConstraintOr([@[%a@]])" (pp_print_list pp_star_constraint) cs
@@ -52,6 +54,7 @@ let rec string_of_constraint = function
 | ConstraintTrue -> Format.sprintf "TRUE"
 | ConstraintExists e -> Format.sprintf "@[%s IN EV@]" (string_of_event e)
 | ConstraintStarOrdered (e1, e2) -> Format.sprintf "@[(%s,@ %s) IN SO@]" (string_of_event e1) (string_of_event e2)
+| ConstraintProgOrdered (e1, e2) -> Format.sprintf "@[(%s,@ %s) IN PO@]" (string_of_event e1) (string_of_event e2)
 | ConstraintNot c -> Format.sprintf "NOT(@[%s@])" (string_of_constraint c)
 | ConstraintAnd cs -> Format.sprintf "(@[%s@])" (String.concat " /\\ " (List.map string_of_constraint cs))
 | ConstraintOr cs -> Format.sprintf "(@[%s@])" (String.concat " \\/ " (List.map string_of_constraint cs))
