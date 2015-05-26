@@ -9,10 +9,11 @@ type dog_constraint =
 | ConstraintTrue
 | ConstraintExists of event                  (* e \in Ev *)
 | ConstraintStarOrdered of event * event     (* (e1,e2) \in so *)
-| ConstraintProgOrdered of event * event     (* (e1,e2) \in po *)
+| ConstraintProgOrdered of identifier * identifier (* (x1,x2) \in po *)
 | ConstraintNot of dog_constraint
 | ConstraintAnd of dog_constraint list
 | ConstraintOr of dog_constraint list
+| ConstraintPattern of (identifier * event list) list * dog_constraint (* \exists x \in S :: ... *)
 
 let rec notstar = function
 | ConstraintFalse -> ConstraintTrue
@@ -39,25 +40,33 @@ let disjunct constraints =
   | [] -> ConstraintTrue
   | _ -> ConstraintOr (flatten (function | ConstraintOr cs -> cs | _ as c -> [c]) constraints)
 
+let pp_exists ppf (id, evs) =
+  Format.fprintf ppf "(%a,@ %a)" pp_string id (pp_print_list pp_event) evs
+
 let rec pp_star_constraint ppf = function
 | ConstraintFalse -> Format.fprintf ppf "ConstraintFalse"
 | ConstraintTrue -> Format.fprintf ppf "ConstraintTrue"
 | ConstraintExists e -> Format.fprintf ppf "ConstraintExists(@[%a@])" pp_event e
 | ConstraintStarOrdered (e1, e2) -> Format.fprintf ppf "ConstraintStarOrdered(@[%a,@ %a@])" pp_event e1 pp_event e2
-| ConstraintProgOrdered (e1, e2) -> Format.fprintf ppf "ConstraintProgOrdered(@[%a,@ %a@])" pp_event e1 pp_event e2
+| ConstraintProgOrdered (x1, x2) -> Format.fprintf ppf "ConstraintProgOrdered(@[%a,@ %a@])" pp_string x1 pp_string x2
 | ConstraintNot c -> Format.fprintf ppf "ConstraintNot(@[%a@])" pp_star_constraint c
 | ConstraintAnd cs -> Format.fprintf ppf "ConstraintAnd([@[%a@]])" (pp_print_list pp_star_constraint) cs
 | ConstraintOr cs -> Format.fprintf ppf "ConstraintOr([@[%a@]])" (pp_print_list pp_star_constraint) cs
+| ConstraintPattern (xs, c) -> Format.fprintf ppf "ConstraintPattern(@[[%a],@ %a@])" (pp_print_list pp_exists) xs pp_star_constraint c
+
+let string_of_exist (id, evs) =
+  Format.sprintf "@[(%s IN {%s})@]" id (String.concat ", " (List.map string_of_event evs))
 
 let rec string_of_constraint = function
 | ConstraintFalse -> Format.sprintf "FALSE"
 | ConstraintTrue -> Format.sprintf "TRUE"
 | ConstraintExists e -> Format.sprintf "@[%s IN EV@]" (string_of_event e)
 | ConstraintStarOrdered (e1, e2) -> Format.sprintf "@[(%s,@ %s) IN SO@]" (string_of_event e1) (string_of_event e2)
-| ConstraintProgOrdered (e1, e2) -> Format.sprintf "@[(%s,@ %s) IN PO@]" (string_of_event e1) (string_of_event e2)
+| ConstraintProgOrdered (x1, x2) -> Format.sprintf "@[NODETOUR_PO(%s,@ %s)@]" x1 x2
 | ConstraintNot c -> Format.sprintf "NOT(@[%s@])" (string_of_constraint c)
 | ConstraintAnd cs -> Format.sprintf "(@[%s@])" (String.concat " /\\ " (List.map string_of_constraint cs))
 | ConstraintOr cs -> Format.sprintf "(@[%s@])" (String.concat " \\/ " (List.map string_of_constraint cs))
+| ConstraintPattern (exists, c) -> Format.sprintf "(@[EXISTS %s :: %s@])" (String.concat " " (List.map string_of_exist exists)) (string_of_constraint c)
 
 let rmstar = function
 | Event (e,alist,se,_) -> Event (e,alist,se,StarNone)
@@ -97,7 +106,7 @@ let lonestar_of edgepath =
   match List.length stars with
   | 0 -> None
   | 1 -> Some (List.hd stars)
-  | _ -> assert false (* more than one star means dog is not well-formed *)
+  | _ -> assert false (* more than one star means dog is not well-formed (check_at_most_one_star_per_path) *)
 
 let expr_of_edgepath edgepath =
   let events = events_of_path edgepath in
@@ -124,7 +133,8 @@ let expr_of_path rules accepting path =
     let nots = List.map (fun s ->
       let path' = path @ [s] in
       let expr = expr_of_edgepath (edges_of_path rules path') in
-      notstar expr
+      (*notstar expr*)
+      ConstraintNot expr
     ) adj' in
     conjunct (edgeexpr :: nots)
 
@@ -153,6 +163,69 @@ let analyse dog =
     Format.printf "\nFiltered paths\n";
     List.iter (fun path -> Format.printf "%s" (String.concat ", " path); Format.printf "\n") paths';
     Format.printf "\nComputed constraint\n";
-    Format.printf "%s" (string_of_constraint full);
-    Format.printf "\n";
+    Format.printf "%s\n" (string_of_constraint full);
   in ()
+
+let gen_counter prefix =
+  let idx = ref 0 in
+  let fresh () =
+    let x = String.concat "" [ prefix; (string_of_int !idx) ] in
+    let _ = idx := !idx + 1 in
+    x
+  in
+  fresh
+
+let efresh_name = gen_counter "e"
+let xfresh_name = gen_counter "x"
+
+let vacuous_constraint dog path vars vacuous_state =
+  let varpairs = (allpairs ([None] @ (List.map (fun x -> Some x) vars) @ [None])) in
+  let state_to_vars = List.map2 (fun s from_to -> (s, from_to)) path varpairs in
+  let preds = predecessors_of_state dog vacuous_state in
+  let preds_in_path = List.filter (fun s -> List.mem s preds) path in
+  let constraint_of state =
+    let _,xexpr,_ = G.find_edge dog.rules state vacuous_state in
+    let var = xfresh_name () in
+    let exists = [ (var, events_of_eventexpr xexpr) ] in
+    let prev, next = List.assoc state state_to_vars in
+    let po = match prev, next with
+      | None, None -> assert false (* unreachable *)
+      | Some e1, None -> ConstraintProgOrdered (e1, var)
+      | None, Some e2 -> ConstraintProgOrdered (var, e2)
+      | Some e1, Some e2 -> conjunct [ ConstraintProgOrdered (e1, var); ConstraintProgOrdered (var, e2) ]
+    in
+    ConstraintNot (ConstraintPattern (exists, po))
+  in
+  conjunct (List.map constraint_of preds_in_path)
+
+let progexpr_of_path dog vacuous path =
+  let edgepath = edges_of_path dog.rules path in
+  let events = List.map events_of_eventexpr edgepath in
+  let vars = List.map (fun _ -> efresh_name ()) events in
+  let exists = List.map2 (fun x evs -> (x, evs)) vars events in
+  let terms = (List.map (fun (x,y) -> ConstraintProgOrdered (x,y)) (allpairs vars)) in
+  let positive_body = conjunct terms in
+  let negative_body = conjunct (List.map (vacuous_constraint dog path vars) vacuous) in
+  ConstraintPattern (exists, conjunct [positive_body; negative_body])
+
+let progconstraint_of_dog dog init =
+  let dog' = expand_letdefs dog in
+  let initial = initial_states_of dog' in
+  let vacuous = vacuous_states_of dog' in
+  let triggering = trigger_states_of dog' in
+  let rules, asserts = dog'.rules, dog'.asserts in
+  let _ = assert (List.mem init initial) in
+  let paths = extract_paths2 rules init triggering in
+  let constraints = List.map (progexpr_of_path dog' vacuous) paths in
+  let full = conjunct constraints in
+  let _ = 
+    Format.printf "Vacuous states\n";
+    Format.printf "%s\n" (String.concat ", " vacuous);
+    Format.printf "Triggering states\n";
+    Format.printf "%s\n" (String.concat ", " triggering);
+    Format.printf "All accepting paths\n";
+    List.iter (fun path -> Format.printf "%s" (String.concat ", " path); Format.printf "\n") paths;
+    Format.printf "\nComputed constraint\n";
+    Format.printf "%s\n" (string_of_constraint full);
+  in
+  full

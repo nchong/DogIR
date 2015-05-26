@@ -9,6 +9,7 @@ open Printf
 
 let dogfile = ref ""
 let soinit = ref ""
+let poinit = ref ""
 let emitir = ref false
 let emitdot = ref ""
 let expand_lets = ref false
@@ -19,6 +20,7 @@ let ignorecmd (s:string) =
 let options = [
   ("-i", Arg.String (fun x -> dogfile := x), "Input DOG file");
   ("-so", Arg.String (fun x -> soinit := x), "Compute starorder from initial state");
+  ("-po", Arg.String (fun x -> poinit := x), "Compute progorder from initial state");
   ("-emitir", Arg.Set emitir, "Emit IR");
   ("-emitdot", Arg.String (fun x -> emitdot := x), "Dotty representation to file");
   ("-expand-lets", Arg.Set expand_lets, "Expand let definitions");
@@ -58,6 +60,11 @@ let main () =
   );
   if !emitir then (
     G.iter_edges_e (fun (_,e,_) -> let _ = print_eventexpr e; print_string "\n" in ()) rules;
+  );
+  if (!poinit <> "") then (
+    printf "Prog constraint from initial state '%s'\n" !poinit;
+    let so = progconstraint_of_dog dog !poinit in
+    printf "%s\n" (string_of_constraint so)
   );
   if (!soinit <> "") then (
     printf "Star constraint from initial state '%s'\n" !soinit;

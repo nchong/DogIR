@@ -61,6 +61,10 @@ let check_at_most_one_star_per_path dog =
   ) initial in
   !ok
 
+(* Check at most event per eventexpr edge in LS domain *)
+
+(* Check at most event per eventexpr edge in LS domain *)
+
 (* List of checks and accompanying error message *)
 let checks = [(check_assert_states, "Assert expression does not use defined states");
               (check_matching_start_for_each_end, "Not all @e events have matching @s");

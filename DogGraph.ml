@@ -27,6 +27,25 @@ type dog_t = {
   asserts: dog_assert list;
 }
 
+let edge_between dog s s' =
+  let _,e,_ = G.find_edge dog.rules s s' in e
+
+let predecessors_of_state dog state =
+  let rules = dog.rules in
+  G.pred rules state
+
+let successors_of_state dog state =
+  let rules = dog.rules in
+  G.succ rules state
+
+let incoming_edges_of_state dog state =
+  let rules = dog.rules in
+  G.pred_e rules state
+
+let outcoming_edges_of_state dog state =
+  let rules = dog.rules in
+  G.succ_e rules state
+
 let trigger_states_of dog =
   nodups (List.fold_right (fun (s, _) states -> s::states) dog.asserts [])
 
@@ -36,6 +55,13 @@ let accepting_states_of dog =
 let initial_states_of dog =
   let rules = dog.rules in
   gvertex_filter (fun v -> G.in_degree rules v = 0) rules
+
+let vacuous_states_of dog =
+  let rules, asserts = dog.rules, dog.asserts in
+  let states_with_no_successors = gvertex_filter (fun v -> G.out_degree rules v = 0) rules in
+  let states_in_asserts = trigger_states_of dog @ accepting_states_of dog in
+  let vacuous = List.filter (fun v -> not (List.mem v states_in_asserts)) states_with_no_successors in
+  vacuous
 
 let events_of_path path =
   List.fold_right (fun expr acc -> (events_of_eventexpr expr) @ acc) path []
