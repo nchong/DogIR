@@ -98,20 +98,6 @@ let make_path_checker g =
   let path_checker = Check.create g in
   Check.check_path path_checker
 
-(* Generate all paths from initial vertex to any vertex of the finals list *)
-let extract_paths rules init finals  =
-  let adj = G.succ rules in
-  let edge_between s s' =
-    let _,e,_ = G.find_edge rules s s' in e
-  in
-  let rec visit s path =
-    if (List.mem s finals) then
-      [ path ] @ List.fold_right (fun s' paths -> (visit s' (path @ [edge_between s s'])) @ paths) (adj s) []
-    else
-      List.fold_right (fun s' paths -> (visit s' (path @ [edge_between s s'])) @ paths) (adj s) []
-  in
-  visit init []
-
 (* returns a list of accepting paths 
    each path is a list [S0;S1;...;Sn] with S0 = init and Sn \in finals *)
 let extract_paths2 rules init finals  =
