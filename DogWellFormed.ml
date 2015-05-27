@@ -36,7 +36,7 @@ let check_matching_start_for_each_end dog =
     ) expected_starts
   in
   let _ = List.iter (fun i ->
-    let paths = extract_paths2 rules i accepting in
+    let paths = extract_paths rules i accepting in
     let edgepaths = List.map (edges_of_path rules) paths in
     List.iter check_path edgepaths
   ) initial in
@@ -57,7 +57,7 @@ let check_at_most_one_star_per_path dog =
     else (Printf.printf "More than one star event on path\n"; ok := false)
   in
   let _ = List.iter (fun i ->
-    let paths = extract_paths2 rules i accepting in
+    let paths = extract_paths rules i accepting in
     let edgepaths = List.map (edges_of_path rules) paths in
     List.iter check_path edgepaths
   ) initial in

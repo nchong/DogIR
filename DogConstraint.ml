@@ -143,7 +143,7 @@ let starconstraint_of_dog dog init =
   let initial = initial_states_of dog in
   let accepting = accepting_states_of dog in
   let _ = assert (List.mem init initial) in
-  let paths = extract_paths2 rules init accepting in
+  let paths = extract_paths rules init accepting in
   let paths' = List.filter (fun p -> not (has_preload rules p)) paths in (* no paths with preloads *)
   let constraints = List.map (expr_of_path rules accepting) paths' in
   disjunct constraints
@@ -153,7 +153,7 @@ let analyse dog =
   let initial = initial_states_of dog in
   let accepting = accepting_states_of dog in
   let _ = assert (List.length initial = 1) in
-  let paths = extract_paths2 rules (List.nth initial 0) accepting in
+  let paths = extract_paths rules (List.nth initial 0) accepting in
   let paths' = List.filter (fun p -> not (has_preload rules p)) paths in (* no paths with preloads *)
   let constraints = List.map (expr_of_path rules accepting) paths' in
   let full = disjunct constraints in
@@ -218,7 +218,7 @@ let progconstraint_of_dog dog init =
   let triggering = trigger_states_of dog' in
   let rules, asserts = dog'.rules, dog'.asserts in
   let _ = assert (List.mem init initial) in
-  let paths = extract_paths2 rules init triggering in
+  let paths = extract_paths rules init triggering in
   let constraints = List.map (progexpr_of_path dog' vacuous) paths in
   let full = conjunct constraints in
   let _ = 

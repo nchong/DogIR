@@ -100,7 +100,7 @@ let make_path_checker g =
 
 (* returns a list of accepting paths 
    each path is a list [S0;S1;...;Sn] with S0 = init and Sn \in finals *)
-let extract_paths2 rules init finals  =
+let extract_paths rules init finals  =
   let adj = G.succ rules in
   let rec visit s path =
     if (List.mem s finals) then
