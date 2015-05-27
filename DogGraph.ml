@@ -27,8 +27,10 @@ type dog_t = {
   asserts: dog_assert list;
 }
 
+let justedge (_,e,_) = e
+
 let edge_between dog s s' =
-  let _,e,_ = G.find_edge dog.rules s s' in e
+  justedge (G.find_edge dog.rules s s')
 
 let predecessors_of_state dog state =
   let rules = dog.rules in
@@ -40,11 +42,11 @@ let successors_of_state dog state =
 
 let incoming_edges_of_state dog state =
   let rules = dog.rules in
-  G.pred_e rules state
+  List.map justedge (G.pred_e rules state)
 
 let outcoming_edges_of_state dog state =
   let rules = dog.rules in
-  G.succ_e rules state
+  List.map justedge (G.succ_e rules state)
 
 let trigger_states_of dog =
   nodups (List.fold_right (fun (s, _) states -> s::states) dog.asserts [])

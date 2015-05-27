@@ -62,7 +62,7 @@ let rec string_of_constraint = function
 | ConstraintTrue -> Format.sprintf "TRUE"
 | ConstraintExists e -> Format.sprintf "@[%s IN EV@]" (string_of_event e)
 | ConstraintStarOrdered (e1, e2) -> Format.sprintf "@[(%s,@ %s) IN SO@]" (string_of_event e1) (string_of_event e2)
-| ConstraintProgOrdered (x1, x2) -> Format.sprintf "@[NODETOUR_PO(%s,@ %s)@]" x1 x2
+| ConstraintProgOrdered (x1, x2) -> Format.sprintf "@[R(%s,@ %s)@]" x1 x2
 | ConstraintNot c -> Format.sprintf "NOT(@[%s@])" (string_of_constraint c)
 | ConstraintAnd cs -> Format.sprintf "(@[%s@])" (String.concat " /\\ " (List.map string_of_constraint cs))
 | ConstraintOr cs -> Format.sprintf "(@[%s@])" (String.concat " \\/ " (List.map string_of_constraint cs))
@@ -186,7 +186,7 @@ let vacuous_constraint dog path vars vacuous_state =
   let constraint_of state =
     let _,xexpr,_ = G.find_edge dog.rules state vacuous_state in
     let var = xfresh_name () in
-    let exists = [ (var, events_of_eventexpr xexpr) ] in
+    let exists = (var, events_of_eventexpr xexpr) in
     let prev, next = List.assoc state state_to_vars in
     let po = match prev, next with
       | None, None -> assert false (* unreachable *)
@@ -194,9 +194,12 @@ let vacuous_constraint dog path vars vacuous_state =
       | None, Some e2 -> ConstraintProgOrdered (var, e2)
       | Some e1, Some e2 -> conjunct [ ConstraintProgOrdered (e1, var); ConstraintProgOrdered (var, e2) ]
     in
-    ConstraintNot (ConstraintPattern (exists, po))
+    (exists, po)
   in
-  conjunct (List.map constraint_of preds_in_path)
+  let constraints = List.map constraint_of preds_in_path in
+  let exists = List.map (fun (e,_) -> e) constraints in
+  let pos = List.map (fun (_,p) -> p) constraints in
+  ConstraintNot (ConstraintPattern (exists, (conjunct pos)))
 
 let progexpr_of_path dog vacuous path =
   let edgepath = edges_of_path dog.rules path in

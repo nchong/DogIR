@@ -23,3 +23,9 @@ let rec pp_print_list pp_v ppf = function
 (* http://stackoverflow.com/questions/10893521/how-to-take-product-of-two-list-in-ocaml *)
 let cartesian l l' = 
   List.concat (List.map (fun e -> List.map (fun e' -> (e,e')) l') l)
+
+let rec unzip = function
+  | [] -> [],[]
+  | (x,y)::t ->
+    let xs,ys = unzip t in
+    x::xs,y::ys
