@@ -1,0 +1,4 @@
+(* Failing test *)
+
+L1 -> L2: LD(A0,D0)@s;
+L1 -> L3: LD(A0,D0)@s;

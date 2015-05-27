@@ -1,0 +1,3 @@
+(* Failing test *)
+
+L1 -> L2: LD(A0,D0)@s && LD(A1, D0)@s;
