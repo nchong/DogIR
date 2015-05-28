@@ -1,0 +1,9 @@
+(* Failing test *)
+
+L1 -> L2: selectBE && BE;
+
+M1 -> M2: RD(A0,D0)@s*;
+M2 -> M3: WR(A1,D0)@s*;
+M3 -> M4: RD(A1,D0)@s*+;
+
+ASSERT L2 |-> M3;

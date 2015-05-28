@@ -14,10 +14,10 @@ let check_assert_states dog =
   !ok
 
 (* Ensure every event using @e has a matching @s *)
-(* TODO: not checking load-store domain now *)
 let check_matching_start_for_each_end dog =
   let rules, asserts = dog.rules, dog.asserts in
   let initial = initial_states_of dog in
+  let triggering = trigger_states_of dog in
   let accepting = accepting_states_of dog in
   let ok = ref true in
   let check_path path =
@@ -36,7 +36,7 @@ let check_matching_start_for_each_end dog =
     ) expected_starts
   in
   let _ = List.iter (fun i ->
-    let paths = extract_paths rules i accepting in
+    let paths = extract_paths rules i (triggering @ accepting) in
     let edgepaths = List.map (edges_of_path rules) paths in
     List.iter check_path edgepaths
   ) initial in

@@ -1,0 +1,8 @@
+(* Failing test *)
+
+L1 -> L2: LD(A0,D0)@s;
+L2 -> L3: ST(A0,D0)@e;
+
+M1 -> M2: RD(A0,D0)@e;
+
+ASSERT L3 |-> M2;
