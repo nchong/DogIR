@@ -244,4 +244,4 @@ let constraint_of_assert dog assertion =
 let constraint_of_dog dog =
   let dog' = expand_letdefs dog in
   let asserts = dog'.asserts in
-  conjunct (List.map (constraint_of_assert dog) asserts)
+  conjunct (List.map (constraint_of_assert dog') asserts)
