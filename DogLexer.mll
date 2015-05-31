@@ -44,6 +44,8 @@ and token = parse
 | ";"             { SEMI }
 | ","             { COMMA }
 | "ASSERT"        { ASSERT }
+| "LS_INIT"       { LS_INIT }
+| "RW_INIT"       { RW_INIT }
 | "|->"           { IMPLIES }
 | "->"            { ARROW }
 | ":"             { COLON }

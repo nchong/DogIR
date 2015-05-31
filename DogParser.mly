@@ -14,6 +14,7 @@ open DogGraph
 %token STAR PLUS MINUS
 %token ATEND ATSTART COMMA SEMI
 %token ASSERT IMPLIES ARROW COLON
+%token LS_INIT RW_INIT
 %token EOF
 
 %left OR
@@ -28,7 +29,7 @@ open DogGraph
 %%
 
 main:
-| letdef_list rule_list dog_assert_list EOF { { letdefs = $1; rules = (graph_of_rule_list $2); asserts = $3 } }
+| letdef_list rule_list dog_assert_list ls_init_list rw_init_list EOF { { letdefs = $1; rules = (graph_of_rule_list $2); asserts = $3 } }
 
 letdef_list:
 | letdef SEMI letdef_list { $1::$3 }
@@ -104,3 +105,21 @@ and_state_list:
 or_state_list:
 | ORACLE OR or_state_list { $1::$3 }
 | ORACLE {[$1]}
+
+ls_init_list:
+| ls_init SEMI ls_init_list { $1::$3 }
+| ls_init {[$1]}
+| {[]}
+
+ls_init:
+| LS_INIT COLON ORACLE { $3 }
+| LS_INIT COLON NAME { $3 }
+
+rw_init_list:
+| rw_init SEMI rw_init_list { $1::$3 }
+| rw_init {[$1]}
+| {[]}
+
+rw_init:
+| RW_INIT COLON ORACLE { $3 }
+| RW_INIT COLON NAME { $3 }

@@ -21,3 +21,7 @@ M4 -> M6: RD(A0,D0)@s;
 M5 -> M6: RD(A0,D0)@s;
 
 ASSERT L5 |-> (M4 || M6);
+
+(* Initial states *)
+LS_INIT: L1;
+RW_INIT: M1;
