@@ -4,6 +4,22 @@ open Lib
 
 exception NotWellFormedError of string
 
+(* Initial LS and RW states exist in the dog and are intial states *)
+let check_initial_states dog =
+  let rules = dog.rules in
+  let initial_states = initial_states_of dog in
+  let ok = ref true in
+  let _ = List.iter 
+    (fun s -> 
+      if (G.mem_vertex rules s) then (
+        if (List.mem s initial_states) then ()
+        else (Printf.printf "Error: state '%s' given in INIT statement is not an initial state (has incoming edges)\n" s; ok := false);
+      )
+      else (Printf.printf "Error: state '%s' given in INIT statement not found in dog\n" s; ok := false);
+    ) (dog.ls_inits @ dog.rw_inits)
+  in
+  !ok
+
 (* Ensure every assert of the form s |-> s' uses existing states s and s' *)
 let check_assert_states dog =
   let rules = dog.rules in
@@ -97,7 +113,8 @@ let check_no_conjuncted_events dog =
 
 
 (* List of checks and accompanying error message *)
-let checks = [(check_assert_states, "Assert expression does not use defined states\n");
+let checks = [(check_initial_states, "Initial state statement are not well-defined\n");
+              (check_assert_states, "Assert expression does not use defined states\n");
               (check_matching_start_for_each_end, "Not all @e events have matching @s\n");
               (check_at_most_one_star_per_path, "Bad path with >1 star event\n");
               (check_no_repeating_events, "State with same event on different edges\n");

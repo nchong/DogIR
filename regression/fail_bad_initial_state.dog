@@ -1,0 +1,7 @@
+(* Failing test *)
+
+L1 -> L2: LD(A0,D0)@s;
+M1 -> M2: RD(A0,D0)@s;
+
+LS_INIT: L5; (* not-defined *)
+RW_INIT: M2; (* not an initial state *)
