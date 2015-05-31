@@ -218,10 +218,10 @@ let progconstraint_of_dog dog init =
 let constraint_of_end_state dog end_state =
   let rules = dog.rules in
   let is_path = make_path_checker rules in
-  let inits = List.filter (fun init -> is_path init end_state) dog.ls_inits @ dog.rw_inits in
+  let inits = List.filter (fun init -> is_path init end_state) (dog.ls_inits @ dog.rw_inits) in
   let _ =
-    assert (List.length inits == 1);
-    assert (List.mem end_state (trigger_states_of dog))
+    assert (List.length inits == 1); (* exactly one initial state can reach end_state *)
+    assert (List.mem end_state (assert_states_of dog))
   in
   let init = List.hd inits in
   let paths = extract_paths rules init [end_state] in
@@ -240,3 +240,8 @@ let constraint_of_assert dog assertion =
   let lhs_terms = List.map (constraint_of_end_state dog) lhs in
   let rhs_terms = List.map (constraint_of_end_state dog) rhs in
   ConstraintAnd [ConstraintNot (disjunct lhs_terms); disjunct rhs_terms]
+
+let constraint_of_dog dog =
+  let dog' = expand_letdefs dog in
+  let asserts = dog'.asserts in
+  conjunct (List.map (constraint_of_assert dog) asserts)

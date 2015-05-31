@@ -13,6 +13,7 @@ let poinit = ref ""
 let emitir = ref false
 let emitdot = ref ""
 let expand_lets = ref false
+let emitfox = ref false
 
 let ignorecmd (s:string) =
   printf "Warning: ignoring cmd arg '%s'\n" s
@@ -24,6 +25,7 @@ let options = [
   ("-emitir", Arg.Set emitir, "Emit IR");
   ("-emitdot", Arg.String (fun x -> emitdot := x), "Dotty representation to file");
   ("-expand-lets", Arg.Set expand_lets, "Expand let definitions");
+  ("-emitfox", Arg.Set emitfox, "Compute FOX");
 ]
 
 let prog =
@@ -70,6 +72,11 @@ let main () =
     printf "Star constraint from initial state '%s'\n" !soinit;
     let so = starconstraint_of_dog dog !soinit in
     printf "%s\n" (string_of_constraint so)
+  );
+  if (!emitfox) then (
+    printf "Computed constraint\n";
+    let fox = constraint_of_dog dog in
+    printf "%s\n" (string_of_constraint fox)
   );
   exit 0
       
