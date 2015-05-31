@@ -214,3 +214,30 @@ let progconstraint_of_dog dog init =
     Format.printf "%s\n" (string_of_constraint full);
   in
   full
+
+let constraint_of_end_state dog po_init_states so_init_states end_state =
+  let rules = dog.rules in
+  let is_path = make_path_checker rules in
+  let inits = List.filter (fun init -> is_path init end_state) po_init_states @ so_init_states in
+  let _ =
+    assert (List.length inits == 1);
+    assert (List.mem end_state (trigger_states_of dog))
+  in
+  let init = List.hd inits in
+  let paths = extract_paths rules init [end_state] in
+  if (List.mem init po_init_states) then
+    let vacuous = vacuous_states_of dog in
+    let terms = List.map (progexpr_of_path dog vacuous) paths in
+    conjunct terms
+  else (* init in so_init_states *)
+    let paths_no_preload = List.filter (fun p -> not (has_preload rules p)) paths in
+    let accepting = accepting_states_of dog in
+    let terms = List.map (expr_of_path rules accepting) paths_no_preload in
+    disjunct terms
+
+let constraint_of_assert dog po_init_states so_init_states assertion =
+  let lhs, rhs = assertion in
+  let constraint_of = constraint_of_end_state dog po_init_states so_init_states in
+  let lhs_terms = List.map (constraint_of) lhs in
+  let rhs_terms = List.map (constraint_of) rhs in
+  ConstraintAnd [ConstraintNot (disjunct lhs_terms); disjunct rhs_terms]

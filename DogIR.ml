@@ -188,3 +188,7 @@ let rec string_of_eventexpr = function
 | ExprBool (op,e1,e2) -> Format.sprintf "(%s %s %s)" (string_of_eventexpr e1) (string_of_boolop op) (string_of_eventexpr e2)
 | ExprAssign (e1,e2) -> Format.sprintf "(%s := %s)" (string_of_eventexpr e1) (string_of_eventexpr e2)
 | ExprEvent e -> string_of_event e
+
+let string_of_dog_assert assertion =
+  let lhs, rhs = assertion in
+  Format.sprintf "%s |-> %s" (String.concat " \\/ " lhs) (String.concat " /\\ " rhs)
