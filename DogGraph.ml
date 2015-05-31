@@ -49,17 +49,20 @@ let outcoming_edges_of_state dog state =
   List.map justedge (G.succ_e rules state)
 
 let trigger_states_of dog =
-  nodups (List.fold_right (fun (s, _) states -> s::states) dog.asserts [])
+  nodups (List.fold_right (fun (lhs, _) states -> lhs@states) dog.asserts [])
 
 let accepting_states_of dog =
-  nodups (List.fold_right (fun (_, s') states -> s'::states) dog.asserts [])
+  nodups (List.fold_right (fun (_, rhs) states -> rhs@states) dog.asserts [])
+
+let assert_states_of dog =
+  nodups (List.fold_right (fun (lhs, rhs) states -> lhs@rhs@states) dog.asserts [])
 
 let initial_states_of dog =
   let rules = dog.rules in
   gvertex_filter (fun v -> G.in_degree rules v = 0) rules
 
 let vacuous_states_of dog =
-  let rules, asserts = dog.rules, dog.asserts in
+  let rules = dog.rules in
   let states_with_no_successors = gvertex_filter (fun v -> G.out_degree rules v = 0) rules in
   let states_in_asserts = trigger_states_of dog @ accepting_states_of dog in
   let vacuous = List.filter (fun v -> not (List.mem v states_in_asserts)) states_with_no_successors in

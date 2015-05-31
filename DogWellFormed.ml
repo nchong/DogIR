@@ -6,8 +6,8 @@ exception NotWellFormedError of string
 
 (* Ensure every assert of the form s |-> s' uses existing states s and s' *)
 let check_assert_states dog =
-  let rules, asserts = dog.rules, dog.asserts in
-  let assert_states = nodups (List.fold_right (fun (s, s') states -> [s;s'] @ states) asserts []) in
+  let rules = dog.rules in
+  let assert_states = assert_states_of dog in
   let ok = ref true in
   let _ = List.iter 
     (fun s -> if (G.mem_vertex rules s) then () else (Printf.printf "Error: state '%s' used in assert not found in dog\n" s; ok := false)) assert_states in
@@ -15,7 +15,7 @@ let check_assert_states dog =
 
 (* Ensure every event using @e has a matching @s *)
 let check_matching_start_for_each_end dog =
-  let rules, asserts = dog.rules, dog.asserts in
+  let rules = dog.rules in
   let initial = initial_states_of dog in
   let triggering = trigger_states_of dog in
   let accepting = accepting_states_of dog in
@@ -43,10 +43,9 @@ let check_matching_start_for_each_end dog =
   !ok
 
 (* Check at most one star event per path from initial to accepting *)
-(* TODO: not checking load-store domain; but possibly should check stronger
- condition that no star events appear at all in load-store domain *)
+(* TODO: Check stronger condition that no star events appear at all in load-store domain *)
 let check_at_most_one_star_per_path dog =
-  let rules, asserts = dog.rules, dog.asserts in
+  let rules = dog.rules in
   let initial = initial_states_of dog in
   let accepting = accepting_states_of dog in
   let ok = ref true in

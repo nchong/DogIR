@@ -56,7 +56,7 @@ type state = string
 
 type rule = state * state * eventexpr
 
-type dog_assert = state * state
+type dog_assert = state list * state list
 
 (* Helpers *)
 
@@ -99,8 +99,8 @@ let tr_oracle s =
   | '?' -> OracleTrue sym
   | _   -> Oracle s
 
-let tr_dog_assert s ts =
-  List.map (fun t -> (s,t)) ts
+let tr_dog_assert lhs_and_states rhs_or_states =
+  (lhs_and_states, rhs_or_states)
 
 (* IR pretty printing *)
 
