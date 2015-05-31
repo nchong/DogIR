@@ -29,7 +29,7 @@ open DogGraph
 %%
 
 main:
-| letdef_list rule_list dog_assert_list ls_init_list rw_init_list EOF { { letdefs = $1; rules = (graph_of_rule_list $2); asserts = $3 } }
+| letdef_list rule_list dog_assert_list ls_init_list rw_init_list EOF { { letdefs = $1; rules = (graph_of_rule_list $2); asserts = $3; ls_inits = $4; rw_inits = $5 } }
 
 letdef_list:
 | letdef SEMI letdef_list { $1::$3 }

@@ -25,6 +25,8 @@ type dog_t = {
   letdefs: letdef list;
   rules : G.t;
   asserts: dog_assert list;
+  ls_inits: state list;
+  rw_inits: state list;
 }
 
 let justedge (_,e,_) = e
@@ -91,7 +93,7 @@ let expand_letdefs dog =
     (s,e',s')
   in
   let rules' = CopyWithEdgeMap.map translate_edge rules in
-  {letdefs = []; rules = rules'; asserts}
+  {letdefs = []; rules = rules'; asserts; ls_inits = dog.ls_inits; rw_inits = dog.rw_inits }
 
 (* Reachability *)
 
