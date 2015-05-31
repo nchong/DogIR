@@ -148,24 +148,6 @@ let starconstraint_of_dog dog init =
   let constraints = List.map (expr_of_path rules accepting) paths' in
   disjunct constraints
 
-let analyse dog =
-  let rules = dog.rules in
-  let initial = initial_states_of dog in
-  let accepting = accepting_states_of dog in
-  let _ = assert (List.length initial = 1) in
-  let paths = extract_paths rules (List.nth initial 0) accepting in
-  let paths' = List.filter (fun p -> not (has_preload rules p)) paths in (* no paths with preloads *)
-  let constraints = List.map (expr_of_path rules accepting) paths' in
-  let full = disjunct constraints in
-  let _ = 
-    Format.printf "All accepting paths\n";
-    List.iter (fun path -> Format.printf "%s" (String.concat ", " path); Format.printf "\n") paths;
-    Format.printf "\nFiltered paths\n";
-    List.iter (fun path -> Format.printf "%s" (String.concat ", " path); Format.printf "\n") paths';
-    Format.printf "\nComputed constraint\n";
-    Format.printf "%s\n" (string_of_constraint full);
-  in ()
-
 let gen_counter prefix =
   let idx = ref 0 in
   let fresh () =
