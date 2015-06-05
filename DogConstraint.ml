@@ -47,7 +47,7 @@ let rec pp_star_constraint ppf = function
 | ConstraintPattern (xs, c) -> Format.fprintf ppf "ConstraintPattern(@[[%a],@ %a@])" (pp_print_list pp_exists) xs pp_star_constraint c
 
 let string_of_exist (id, evs) =
-  Format.sprintf "@[(%s IN {%s})@]" id (String.concat ", " (List.map string_of_event evs))
+  Format.sprintf "@[(%s MATCHES {%s})@]" id (String.concat ", " (List.map string_of_event evs))
 
 let rec string_of_constraint = function
 | ConstraintFalse -> Format.sprintf "FALSE"
@@ -100,7 +100,7 @@ let lonestar_of edgepath =
   | 1 -> Some (List.hd stars)
   | _ -> assert false (* more than one star means dog is not well-formed (check_at_most_one_star_per_path) *)
 
-let expr_of_edgepath edgepath =
+let starexpr_of_edgepath edgepath =
   let events = events_of_path edgepath in
   let starts = (List.filter (function Event (e,alist,AtStart,_) -> true | _ -> false) events) in
   let exist_constraints = List.map (function Event (e,alist,AtStart,_) -> ConstraintExists (Event (e,alist,AtStart,StarNone)) | _ -> assert false (* unreachable *)) starts in
@@ -113,9 +113,9 @@ let expr_of_edgepath edgepath =
   in
   conjunct (exist_constraints @ star_constraints)
 
-let expr_of_path rules accepting path =
+let starexpr_of_path rules accepting path =
   let edgepath = edges_of_path rules path in
-  let edgeexpr = expr_of_edgepath edgepath in
+  let edgeexpr = starexpr_of_edgepath edgepath in
   let final = List.hd (List.rev path) in
   let adj = G.succ rules final in
   match adj with
@@ -124,20 +124,10 @@ let expr_of_path rules accepting path =
     let adj' = List.filter (fun s -> not (List.mem s accepting)) adj in
     let nots = List.map (fun s ->
       let path' = path @ [s] in
-      let expr = expr_of_edgepath (edges_of_path rules path') in
+      let expr = starexpr_of_edgepath (edges_of_path rules path') in
       ConstraintNot expr
     ) adj' in
     conjunct (edgeexpr :: nots)
-
-let starconstraint_of_dog dog init =
-  let rules = dog.rules in
-  let initial = initial_states_of dog in
-  let accepting = accepting_states_of dog in
-  let _ = assert (List.mem init initial) in
-  let paths = extract_paths rules init accepting in
-  let paths' = List.filter (fun p -> not (has_preload rules p)) paths in (* no paths with preloads *)
-  let constraints = List.map (expr_of_path rules accepting) paths' in
-  disjunct constraints
 
 let gen_counter prefix =
   let idx = ref 0 in
@@ -184,6 +174,47 @@ let progexpr_of_path dog vacuous path =
   let negative_body = conjunct (List.map (vacuous_constraint dog path vars) vacuous) in
   ConstraintPattern (exists, conjunct [positive_body; negative_body])
 
+let constraint_of_end_state dog end_state =
+  let rules = dog.rules in
+  let is_path = make_path_checker rules in
+  let inits = List.filter (fun init -> is_path init end_state) (dog.ls_inits @ dog.rw_inits) in
+  let _ =
+    assert (List.length inits == 1); (* exactly one initial state can reach end_state *)
+    assert (List.mem end_state (assert_states_of dog))
+  in
+  let init = List.hd inits in
+  let paths = extract_paths rules init [end_state] in
+  if (List.mem init dog.ls_inits) then
+    let vacuous = vacuous_states_of dog in
+    let terms = List.map (progexpr_of_path dog vacuous) paths in
+    disjunct terms
+  else (* init in rw_inits *)
+    let paths_no_preload = List.filter (fun p -> not (has_preload rules p)) paths in
+    let accepting = accepting_states_of dog in
+    let terms = List.map (starexpr_of_path rules accepting) paths_no_preload in
+    disjunct terms
+
+let constraint_of_assert dog assertion =
+  let lhs, rhs = assertion in
+  let lhs_terms = List.map (constraint_of_end_state dog) lhs in
+  let rhs_terms = List.map (constraint_of_end_state dog) rhs in
+  ConstraintOr [ConstraintNot (disjunct lhs_terms); disjunct rhs_terms] (* implication *)
+
+let constraint_of_dog dog =
+  let dog' = expand_letdefs dog in
+  let asserts = dog'.asserts in
+  conjunct (List.map (constraint_of_assert dog') asserts)
+
+let starconstraint_of_dog dog init =
+  let rules = dog.rules in
+  let initial = initial_states_of dog in
+  let accepting = accepting_states_of dog in
+  let _ = assert (List.mem init initial) in
+  let paths = extract_paths rules init accepting in
+  let paths' = List.filter (fun p -> not (has_preload rules p)) paths in (* no paths with preloads *)
+  let constraints = List.map (starexpr_of_path rules accepting) paths' in
+  disjunct constraints
+
 let progconstraint_of_dog dog init =
   let dog' = expand_letdefs dog in
   let initial = initial_states_of dog' in
@@ -205,34 +236,3 @@ let progconstraint_of_dog dog init =
     Format.printf "%s\n" (string_of_constraint full);
   in
   full
-
-let constraint_of_end_state dog end_state =
-  let rules = dog.rules in
-  let is_path = make_path_checker rules in
-  let inits = List.filter (fun init -> is_path init end_state) (dog.ls_inits @ dog.rw_inits) in
-  let _ =
-    assert (List.length inits == 1); (* exactly one initial state can reach end_state *)
-    assert (List.mem end_state (assert_states_of dog))
-  in
-  let init = List.hd inits in
-  let paths = extract_paths rules init [end_state] in
-  if (List.mem init dog.ls_inits) then
-    let vacuous = vacuous_states_of dog in
-    let terms = List.map (progexpr_of_path dog vacuous) paths in
-    disjunct terms
-  else (* init in rw_inits *)
-    let paths_no_preload = List.filter (fun p -> not (has_preload rules p)) paths in
-    let accepting = accepting_states_of dog in
-    let terms = List.map (expr_of_path rules accepting) paths_no_preload in
-    disjunct terms
-
-let constraint_of_assert dog assertion =
-  let lhs, rhs = assertion in
-  let lhs_terms = List.map (constraint_of_end_state dog) lhs in
-  let rhs_terms = List.map (constraint_of_end_state dog) rhs in
-  ConstraintOr [ConstraintNot (disjunct lhs_terms); disjunct rhs_terms] (* implication *)
-
-let constraint_of_dog dog =
-  let dog' = expand_letdefs dog in
-  let asserts = dog'.asserts in
-  conjunct (List.map (constraint_of_assert dog') asserts)
