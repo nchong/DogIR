@@ -15,14 +15,6 @@ type dog_constraint =
 | ConstraintOr of dog_constraint list
 | ConstraintPattern of (identifier * event list) list * dog_constraint (* \exists x \in S :: ... *)
 
-let rec notstar = function
-| ConstraintFalse -> ConstraintTrue
-| ConstraintTrue -> ConstraintFalse
-| ConstraintNot c -> c
-| ConstraintAnd cs -> ConstraintOr (List.map notstar cs)
-| ConstraintOr cs -> ConstraintAnd (List.map notstar cs)
-| _ as c -> ConstraintNot c
-
 let flatten termof xs =
   let rec aux acc = function
     | [] -> acc
@@ -133,7 +125,6 @@ let expr_of_path rules accepting path =
     let nots = List.map (fun s ->
       let path' = path @ [s] in
       let expr = expr_of_edgepath (edges_of_path rules path') in
-      (*notstar expr*)
       ConstraintNot expr
     ) adj' in
     conjunct (edgeexpr :: nots)
