@@ -121,5 +121,17 @@ let checks = [(check_initial_states, "Initial state statement are not well-defin
               (check_no_conjuncted_events, "Edge with conjunction of events\n");
              ]
 
+let warn_all_initial_states_labelled dog =
+  let initial_states = initial_states_of dog in
+  let labels = dog.ls_inits @ dog.rw_inits in
+  List.iter (fun s ->
+    if (List.mem s labels) then ()
+    else (Printf.printf "Warning: initial state '%s' is not labelled\n" s)
+  )
+  initial_states
+
+let warnings = [warn_all_initial_states_labelled;]
+
 let check_wellformed dog =
-  List.iter (fun (check, msg) -> if check dog then () else raise (NotWellFormedError msg)) checks
+  List.iter (fun (check, msg) -> if check dog then () else raise (NotWellFormedError msg)) checks;
+  List.iter (fun check -> check dog) warnings

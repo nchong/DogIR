@@ -228,7 +228,7 @@ let constraint_of_end_state dog end_state =
   if (List.mem init dog.ls_inits) then
     let vacuous = vacuous_states_of dog in
     let terms = List.map (progexpr_of_path dog vacuous) paths in
-    conjunct terms
+    disjunct terms
   else (* init in rw_inits *)
     let paths_no_preload = List.filter (fun p -> not (has_preload rules p)) paths in
     let accepting = accepting_states_of dog in
@@ -239,7 +239,7 @@ let constraint_of_assert dog assertion =
   let lhs, rhs = assertion in
   let lhs_terms = List.map (constraint_of_end_state dog) lhs in
   let rhs_terms = List.map (constraint_of_end_state dog) rhs in
-  ConstraintAnd [ConstraintNot (disjunct lhs_terms); disjunct rhs_terms]
+  ConstraintOr [ConstraintNot (disjunct lhs_terms); disjunct rhs_terms] (* implication *)
 
 let constraint_of_dog dog =
   let dog' = expand_letdefs dog in
