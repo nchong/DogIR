@@ -1,0 +1,6 @@
+(* Warning test *)
+
+L1 -> L2: LD(A0,D0)@s;
+M1 -> M2: RD(A0,D0)@s;
+
+(* neither L1 or M1 are labelled LS_INIT or RW_INIT *)
