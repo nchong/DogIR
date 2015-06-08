@@ -4,6 +4,11 @@ open Lib
 
 (* Assume at most one event per eventexpr edge *)
 
+(* Fresh variable generator for ranging over event expressions *)
+let efresh_name = gen_counter "e"
+(* Fresh variable generator for ranging over vacuous escape expressions *)
+let xfresh_name = gen_counter "x"
+
 type dog_constraint =
 | ConstraintFalse
 | ConstraintTrue
@@ -128,18 +133,6 @@ let starexpr_of_path rules accepting path =
       ConstraintNot expr
     ) adj' in
     conjunct (edgeexpr :: nots)
-
-let gen_counter prefix =
-  let idx = ref 0 in
-  let fresh () =
-    let x = String.concat "" [ prefix; (string_of_int !idx) ] in
-    let _ = idx := !idx + 1 in
-    x
-  in
-  fresh
-
-let efresh_name = gen_counter "e"
-let xfresh_name = gen_counter "x"
 
 let vacuous_constraint dog path vars vacuous_state =
   let varpairs = (allpairs ([None] @ (List.map (fun x -> Some x) vars) @ [None])) in

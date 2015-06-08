@@ -23,3 +23,15 @@ let rec pp_print_list pp_v ppf = function
 (* http://stackoverflow.com/questions/10893521/how-to-take-product-of-two-list-in-ocaml *)
 let cartesian l l' = 
   List.concat (List.map (fun e -> List.map (fun e' -> (e,e')) l') l)
+
+(* fresh counter generator *)
+(* If xfresh = gen_counter "x" then each xfresh() call gives fresh vars x0, x1, ... *)
+let gen_counter prefix =
+  let idx = ref 0 in
+  let fresh () =
+    let x = String.concat "" [ prefix; (string_of_int !idx) ] in
+    let _ = idx := !idx + 1 in
+    x
+  in
+  fresh
+
