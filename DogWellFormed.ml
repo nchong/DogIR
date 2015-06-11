@@ -166,7 +166,7 @@ let checks = [(check_initial_states, "Initial state statement are not well-defin
               (check_matching_start_for_each_end, "Not all @e events have matching @s\n");
               (check_at_most_one_star_per_path, "Bad path with >1 star event\n");
               (check_no_stars_in_load_store_domain, "Star event appears in load-store domain\n");
-              (check_at_most_one_event_per_rw_edge dog, "More than one event on edge of read-write domain");
+              (check_at_most_one_event_per_rw_edge, "More than one event on edge of read-write domain");
               (check_no_repeating_events, "State with same event on different edges\n");
               (check_no_conjuncted_events, "Edge with conjunction of events\n");
               (check_exactly_one_initial_state, "State in assert reachable from multiple initial states\n");
