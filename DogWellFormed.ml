@@ -59,7 +59,6 @@ let check_matching_start_for_each_end dog =
   !ok
 
 (* Check at most one star event per path from initial to accepting *)
-(* TODO: Check stronger condition that no star events appear at all in load-store domain *)
 let check_at_most_one_star_per_path dog =
   let rules = dog.rules in
   let initial = initial_states_of dog in
@@ -78,7 +77,28 @@ let check_at_most_one_star_per_path dog =
   ) initial in
   !ok
 
-(* Check at most event per eventexpr edge in LS domain *)
+(* No star events in load-store domain edges *)
+let check_no_stars_in_load_store_domain dog =
+  let rules = dog.rules in
+  let ok = ref true in
+  let check_event event =
+    match event with
+    | Event (_,_,_,star) ->
+      if star == StarNone then ()
+      else (Printf.printf "Error: star event [%s] appears in LS domain\n" (string_of_event event); ok := false)
+    | _ -> ()
+  in
+  let is_path = make_path_checker rules in
+  let check_edge (_,eventexpr,t) =
+    if List.exists (fun init -> is_path init t) dog.ls_inits then
+      let events = events_of_eventexpr eventexpr in
+      List.iter check_event events
+    else ()
+  in
+  let _ = G.iter_edges_e check_edge dog.rules in
+  !ok
+
+(* Check at most event per eventexpr edge in read-write domain *)
 
 (* Events must not be shared by outgoing edges *)
 let check_no_repeating_events dog =
@@ -132,6 +152,7 @@ let checks = [(check_initial_states, "Initial state statement are not well-defin
               (check_assert_states, "Assert expression does not use defined states\n");
               (check_matching_start_for_each_end, "Not all @e events have matching @s\n");
               (check_at_most_one_star_per_path, "Bad path with >1 star event\n");
+              (check_no_stars_in_load_store_domain, "Star event appears in load-store domain\n");
               (check_no_repeating_events, "State with same event on different edges\n");
               (check_no_conjuncted_events, "Edge with conjunction of events\n");
               (check_exactly_one_initial_state, "State in assert reachable from multiple initial states\n");
