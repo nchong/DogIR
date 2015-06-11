@@ -18,6 +18,7 @@ type dog_constraint =
 | ConstraintNot of dog_constraint
 | ConstraintAnd of dog_constraint list
 | ConstraintOr of dog_constraint list
+| ConstraintImplies of dog_constraint * dog_constraint
 | ConstraintPattern of (identifier * event list) list * dog_constraint (* \exists x \in S :: ... *)
 
 let flatten termof xs =
@@ -49,6 +50,7 @@ let rec pp_star_constraint ppf = function
 | ConstraintNot c -> Format.fprintf ppf "ConstraintNot(@[%a@])" pp_star_constraint c
 | ConstraintAnd cs -> Format.fprintf ppf "ConstraintAnd([@[%a@]])" (pp_print_list pp_star_constraint) cs
 | ConstraintOr cs -> Format.fprintf ppf "ConstraintOr([@[%a@]])" (pp_print_list pp_star_constraint) cs
+| ConstraintImplies (lhs, rhs) -> Format.fprintf ppf "ConstraintImplies(@[%a,@ %a@])" pp_star_constraint lhs pp_star_constraint rhs
 | ConstraintPattern (xs, c) -> Format.fprintf ppf "ConstraintPattern(@[[%a],@ %a@])" (pp_print_list pp_exists) xs pp_star_constraint c
 
 let string_of_exist (id, evs) =
@@ -63,6 +65,7 @@ let rec string_of_constraint = function
 | ConstraintNot c -> Format.sprintf "NOT(@[%s@])" (string_of_constraint c)
 | ConstraintAnd cs -> Format.sprintf "(@[%s@])" (String.concat " /\\ " (List.map string_of_constraint cs))
 | ConstraintOr cs -> Format.sprintf "(@[%s@])" (String.concat " \\/ " (List.map string_of_constraint cs))
+| ConstraintImplies (lhs, rhs) -> Format.sprintf "(@[%s => %s@])" (string_of_constraint lhs) (string_of_constraint rhs)
 | ConstraintPattern (exists, c) -> Format.sprintf "(@[EXISTS %s :: %s@])" (String.concat " " (List.map string_of_exist exists)) (string_of_constraint c)
 
 let rmstar = function
@@ -191,7 +194,7 @@ let constraint_of_assert dog assertion =
   let lhs, rhs = assertion in
   let lhs_terms = List.map (constraint_of_end_state dog) lhs in
   let rhs_terms = List.map (constraint_of_end_state dog) rhs in
-  ConstraintOr [ConstraintNot (disjunct lhs_terms); disjunct rhs_terms] (* implication *)
+  ConstraintImplies (disjunct lhs_terms, disjunct rhs_terms)
 
 let constraint_of_dog dog =
   let dog' = expand_letdefs dog in
