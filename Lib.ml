@@ -20,6 +20,7 @@ let rec pp_print_list pp_v ppf = function
   | x::xs -> Format.fprintf ppf "@[%a;@]" pp_v x; pp_print_list pp_v ppf xs
 
 (* cartesian product *)
+(* e.g., cartesian [1;2;3] [a;b] -> [(1,a);(1,b);(2,a);(2,b);(3,a);(3,b)] *)
 (* http://stackoverflow.com/questions/10893521/how-to-take-product-of-two-list-in-ocaml *)
 let cartesian l l' = 
   List.concat (List.map (fun e -> List.map (fun e' -> (e,e')) l') l)
