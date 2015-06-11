@@ -99,6 +99,19 @@ let check_no_stars_in_load_store_domain dog =
   !ok
 
 (* Check at most event per eventexpr edge in read-write domain *)
+(* Could be relaxed? *)
+let check_at_most_one_event_per_rw_edge dog =
+  let rules = dog.rules in
+  let ok = ref true in
+  let is_path = make_path_checker rules in
+  let check_edge (_,eventexpr,t) =
+    if List.exists (fun init -> is_path init t) dog.rw_inits then
+      let events = events_of_eventexpr eventexpr in
+      if List.length events <= 1 then ()
+      else (Printf.printf "Error: More than one event in edge [%s] of RW domain\n" (string_of_eventexpr eventexpr); ok := false)
+  in
+  let _ = G.iter_edges_e check_edge dog.rules in
+  !ok
 
 (* Events must not be shared by outgoing edges *)
 let check_no_repeating_events dog =
@@ -153,6 +166,7 @@ let checks = [(check_initial_states, "Initial state statement are not well-defin
               (check_matching_start_for_each_end, "Not all @e events have matching @s\n");
               (check_at_most_one_star_per_path, "Bad path with >1 star event\n");
               (check_no_stars_in_load_store_domain, "Star event appears in load-store domain\n");
+              (check_at_most_one_event_per_rw_edge dog, "More than one event on edge of read-write domain");
               (check_no_repeating_events, "State with same event on different edges\n");
               (check_no_conjuncted_events, "Edge with conjunction of events\n");
               (check_exactly_one_initial_state, "State in assert reachable from multiple initial states\n");
