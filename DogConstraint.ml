@@ -2,8 +2,6 @@ open DogIR
 open DogGraph
 open Lib
 
-(* Assume at most one event per eventexpr edge *)
-
 (* Fresh variable generator for ranging over event expressions *)
 let efresh_name = gen_counter "e"
 (* Fresh variable generator for ranging over vacuous escape expressions *)
