@@ -10,9 +10,9 @@ let xfresh_name = gen_counter "x"
 type dog_constraint =
 | ConstraintFalse
 | ConstraintTrue
-| ConstraintExists of event                  (* e \in Ev *)
-| ConstraintStarOrdered of event * event     (* (e1,e2) \in so *)
-| ConstraintProgOrdered of identifier * identifier (* (x1,x2) \in po *)
+| ConstraintExists of event                         (* e \in Ev *)
+| ConstraintStarOrdered of event * event            (* (e1,e2) \in so *)
+| ConstraintProgOrdered of identifier * identifier  (* (x1,x2) \in po *)
 | ConstraintNot of dog_constraint
 | ConstraintAnd of dog_constraint list
 | ConstraintOr of dog_constraint list
@@ -198,35 +198,3 @@ let constraint_of_dog dog =
   let dog' = expand_letdefs dog in
   let asserts = dog'.asserts in
   conjunct (List.map (constraint_of_assert dog') asserts)
-
-let starconstraint_of_dog dog init =
-  let rules = dog.rules in
-  let initial = initial_states_of dog in
-  let accepting = accepting_states_of dog in
-  let _ = assert (List.mem init initial) in
-  let paths = extract_paths rules init accepting in
-  let paths' = List.filter (fun p -> not (has_preload rules p)) paths in (* no paths with preloads *)
-  let constraints = List.map (starexpr_of_path rules accepting) paths' in
-  disjunct constraints
-
-let progconstraint_of_dog dog init =
-  let dog' = expand_letdefs dog in
-  let initial = initial_states_of dog' in
-  let vacuous = vacuous_states_of dog' in
-  let triggering = trigger_states_of dog' in
-  let rules, asserts = dog'.rules, dog'.asserts in
-  let _ = assert (List.mem init initial) in
-  let paths = extract_paths rules init triggering in
-  let constraints = List.map (progexpr_of_path dog' vacuous) paths in
-  let full = conjunct constraints in
-  let _ = 
-    Format.printf "Vacuous states\n";
-    Format.printf "%s\n" (String.concat ", " vacuous);
-    Format.printf "Triggering states\n";
-    Format.printf "%s\n" (String.concat ", " triggering);
-    Format.printf "All accepting paths\n";
-    List.iter (fun path -> Format.printf "%s" (String.concat ", " path); Format.printf "\n") paths;
-    Format.printf "\nComputed constraint\n";
-    Format.printf "%s\n" (string_of_constraint full);
-  in
-  full
