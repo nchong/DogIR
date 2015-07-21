@@ -162,7 +162,7 @@ let constraint_of_end_state dog end_state =
   let inits = List.filter (fun init -> is_path init end_state) (dog.ls_inits @ dog.rw_inits) in
   let _ =
     assert (List.length inits == 1); (* exactly one initial state can reach end_state *)
-    assert (List.mem end_state (assert_states_of dog))
+    assert (List.mem end_state (assert_states_of dog)) (* valid trigger or accept state *)
   in
   let init = List.hd inits in
   let paths = extract_paths rules init [end_state] in
@@ -176,6 +176,7 @@ let constraint_of_end_state dog end_state =
     let terms = List.map (starexpr_of_path rules accepting) paths_no_preload in
     disjunct terms
 
+(* TODO: better to rewrite assertion without assuming structure of formula *)
 let constraint_of_assert dog assertion =
   let lhs, rhs = assertion in
   let lhs_terms = List.map (constraint_of_end_state dog) lhs in
