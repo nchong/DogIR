@@ -152,12 +152,12 @@ let vacuous_constraint dog path vars vacuous_state =
 let progexpr_of_path dog vacuous path =
   let edgepath = edges_of_path dog.rules path in
   let events = List.map events_of_eventexpr edgepath in
-  let vars = List.map (fun _ -> efresh_name ()) events in
-  let exists = List.map2 (fun x evs -> (x, evs)) vars events in
-  let terms = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (allpairs vars)) in
+  let fresh_event_vars = List.map (fun _ -> efresh_name ()) events in
+  let matches = List.map2 (fun x evs -> (x, evs)) fresh_event_vars events in
+  let terms = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (allpairs fresh_event_vars)) in
   let positive_body = conjunct terms in
-  let negative_body = conjunct (List.map (vacuous_constraint dog path vars) vacuous) in
-  ConstraintPattern (exists, conjunct [positive_body; negative_body])
+  let negative_body = conjunct (List.map (vacuous_constraint dog path fresh_event_vars) vacuous) in
+  ConstraintPattern (matches, conjunct [positive_body; negative_body])
 
 let constraint_of_end_state dog end_state =
   let rules = dog.rules in
