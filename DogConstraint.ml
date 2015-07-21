@@ -10,14 +10,16 @@ let xfresh_name = gen_counter "x"
 type dog_constraint =
 | ConstraintFalse
 | ConstraintTrue
-| ConstraintExists of event                          (* e \in Ev *)
-| ConstraintStarOrdered of event * event             (* (e1,e2) \in so *)
-| ConstraintClockOrdered of identifier * identifier  (* (e1,e2) \in ct_leq *)
+| ConstraintExists of event                               (* e \in Ev *)
+| ConstraintStarOrdered of event * event                  (* (e1,e2) \in so *)
+| ConstraintClockOrdered of identifier * identifier       (* (e1,e2) \in ct_leq *)
+| ConstraintClockOrderedStrict of identifier * identifier (* (e1,e2) \in ct_lt *)
 | ConstraintNot of dog_constraint
 | ConstraintAnd of dog_constraint list
 | ConstraintOr of dog_constraint list
 | ConstraintImplies of dog_constraint * dog_constraint
-| ConstraintPattern of (identifier * event list) list * dog_constraint (* \exists x \in S :: ... *)
+(* \exists e0 e1 ... \in Ev :: (e0 MATCHES E0) /\ (e1 MATCHES E1) /\ ... /\ RestOfConstraint *)
+| ConstraintPattern of (identifier * event list) list * dog_constraint 
 
 let flatten termof xs =
   let rec aux acc = function
@@ -48,6 +50,7 @@ let rec string_of_constraint = function
 | ConstraintExists e -> Format.sprintf "@[%s IN EV@]" (string_of_event e)
 | ConstraintStarOrdered (e1, e2) -> Format.sprintf "@[(%s,@ %s) IN SO@]" (string_of_event e1) (string_of_event e2)
 | ConstraintClockOrdered (x1, x2) -> Format.sprintf "@[CT<=(%s,@ %s)@]" x1 x2
+| ConstraintClockOrderedStrict (x1, x2) -> Format.sprintf "@[CT<(%s,@ %s)@]" x1 x2
 | ConstraintNot c -> Format.sprintf "NOT(@[%s@])" (string_of_constraint c)
 | ConstraintAnd cs -> Format.sprintf "(@[%s@])" (String.concat " /\\ " (List.map string_of_constraint cs))
 | ConstraintOr cs -> Format.sprintf "(@[%s@])" (String.concat " \\/ " (List.map string_of_constraint cs))
