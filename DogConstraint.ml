@@ -39,18 +39,6 @@ let disjunct constraints =
 let pp_exists ppf (id, evs) =
   Format.fprintf ppf "(%a,@ %a)" pp_string id (pp_print_list pp_event) evs
 
-let rec pp_star_constraint ppf = function
-| ConstraintFalse -> Format.fprintf ppf "ConstraintFalse"
-| ConstraintTrue -> Format.fprintf ppf "ConstraintTrue"
-| ConstraintExists e -> Format.fprintf ppf "ConstraintExists(@[%a@])" pp_event e
-| ConstraintStarOrdered (e1, e2) -> Format.fprintf ppf "ConstraintStarOrdered(@[%a,@ %a@])" pp_event e1 pp_event e2
-| ConstraintProgOrdered (x1, x2) -> Format.fprintf ppf "ConstraintProgOrdered(@[%a,@ %a@])" pp_string x1 pp_string x2
-| ConstraintNot c -> Format.fprintf ppf "ConstraintNot(@[%a@])" pp_star_constraint c
-| ConstraintAnd cs -> Format.fprintf ppf "ConstraintAnd([@[%a@]])" (pp_print_list pp_star_constraint) cs
-| ConstraintOr cs -> Format.fprintf ppf "ConstraintOr([@[%a@]])" (pp_print_list pp_star_constraint) cs
-| ConstraintImplies (lhs, rhs) -> Format.fprintf ppf "ConstraintImplies(@[%a,@ %a@])" pp_star_constraint lhs pp_star_constraint rhs
-| ConstraintPattern (xs, c) -> Format.fprintf ppf "ConstraintPattern(@[[%a],@ %a@])" (pp_print_list pp_exists) xs pp_star_constraint c
-
 let string_of_exist (id, evs) =
   Format.sprintf "@[(%s MATCHES {%s})@]" id (String.concat ", " (List.map string_of_event evs))
 
