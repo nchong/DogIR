@@ -10,9 +10,9 @@ let xfresh_name = gen_counter "x"
 type dog_constraint =
 | ConstraintFalse
 | ConstraintTrue
-| ConstraintExists of event                         (* e \in Ev *)
-| ConstraintStarOrdered of event * event            (* (e1,e2) \in so *)
-| ConstraintProgOrdered of identifier * identifier  (* (x1,x2) \in po *)
+| ConstraintExists of event                          (* e \in Ev *)
+| ConstraintStarOrdered of event * event             (* (e1,e2) \in so *)
+| ConstraintClockOrdered of identifier * identifier  (* (e1,e2) \in ct_leq *)
 | ConstraintNot of dog_constraint
 | ConstraintAnd of dog_constraint list
 | ConstraintOr of dog_constraint list
@@ -47,7 +47,7 @@ let rec string_of_constraint = function
 | ConstraintTrue -> Format.sprintf "TRUE"
 | ConstraintExists e -> Format.sprintf "@[%s IN EV@]" (string_of_event e)
 | ConstraintStarOrdered (e1, e2) -> Format.sprintf "@[(%s,@ %s) IN SO@]" (string_of_event e1) (string_of_event e2)
-| ConstraintProgOrdered (x1, x2) -> Format.sprintf "@[R(%s,@ %s)@]" x1 x2
+| ConstraintClockOrdered (x1, x2) -> Format.sprintf "@[CT<=(%s,@ %s)@]" x1 x2
 | ConstraintNot c -> Format.sprintf "NOT(@[%s@])" (string_of_constraint c)
 | ConstraintAnd cs -> Format.sprintf "(@[%s@])" (String.concat " /\\ " (List.map string_of_constraint cs))
 | ConstraintOr cs -> Format.sprintf "(@[%s@])" (String.concat " \\/ " (List.map string_of_constraint cs))
@@ -135,9 +135,9 @@ let vacuous_constraint dog path vars vacuous_state =
     let prev, next = List.assoc state state_to_vars in
     let po = match prev, next with
       | None, None -> assert false (* unreachable *)
-      | Some e1, None -> ConstraintProgOrdered (e1, var)
-      | None, Some e2 -> ConstraintProgOrdered (var, e2)
-      | Some e1, Some e2 -> conjunct [ ConstraintProgOrdered (e1, var); ConstraintProgOrdered (var, e2) ]
+      | Some e1, None -> ConstraintClockOrdered (e1, var)
+      | None, Some e2 -> ConstraintClockOrdered (var, e2)
+      | Some e1, Some e2 -> conjunct [ ConstraintClockOrdered (e1, var); ConstraintClockOrdered (var, e2) ]
     in
     (exists, po)
   in
@@ -151,7 +151,7 @@ let progexpr_of_path dog vacuous path =
   let events = List.map events_of_eventexpr edgepath in
   let vars = List.map (fun _ -> efresh_name ()) events in
   let exists = List.map2 (fun x evs -> (x, evs)) vars events in
-  let terms = (List.map (fun (x,y) -> ConstraintProgOrdered (x,y)) (allpairs vars)) in
+  let terms = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (allpairs vars)) in
   let positive_body = conjunct terms in
   let negative_body = conjunct (List.map (vacuous_constraint dog path vars) vacuous) in
   ConstraintPattern (exists, conjunct [positive_body; negative_body])
