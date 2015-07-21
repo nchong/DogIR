@@ -70,9 +70,9 @@ let star_constraint_of e1 e2 =
     | StarMinus -> ConstraintStarOrdered (e2', e1')
     | StarNotPlus -> ConstraintNot (ConstraintStarOrdered (e1', e2'))
     | StarNotMinus -> ConstraintNot (ConstraintStarOrdered (e2', e1'))
-    | _ -> ConstraintTrue
+    | _ -> assert false (* unreachable *)
   end
-  | _, _ -> ConstraintTrue
+  | _, _ -> assert false (* unreachable *)
 
 let is_data_oracle = function
 | Oracle id | OracleExists id | OracleTrue id -> id.[0] = 'D'

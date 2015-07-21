@@ -74,9 +74,27 @@ let events_of_eventexpr ev =
   let rec aux ev acc =
     match ev with
     | ExprIdentifier _ | ExprNum _ -> acc
-    | ExprNot e -> aux ev acc
+    | ExprNot e -> aux e acc
     | ExprBool (_,e1,e2) | ExprAssign (e1,e2) -> aux e1 (aux e2 acc)
     | ExprEvent e -> e::acc
+  in
+  aux ev []
+
+let is_identifier = function
+| ExprIdentifier _ -> true
+| _ -> false
+
+let is_num = function
+| ExprNum _ -> true
+| _ -> false
+
+let sync_assignments_of_eventexpr ev =
+  let rec aux ev acc =
+    match ev with
+    | ExprAssign (e1,e2) ->
+      if is_identifier e1 && is_num e2 then (e1,e2)::acc else acc
+    | ExprIdentifier _ | ExprNum _ | ExprNot _ | ExprEvent _ -> acc
+    | ExprBool (_,e1,e2) -> aux e1 (aux e2 acc)
   in
   aux ev []
 
