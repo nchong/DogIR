@@ -15,10 +15,10 @@ type startend =
 
 type event_symbol = identifier
 
-type event_actual =
-| EventActualOracle of oracle
-| EventActualAttribute of identifier
-| EventActualNot of event_actual
+type event_formal =
+| EventFormalOracle of oracle
+| EventFormalAttribute of identifier
+| EventFormalNot of event_formal
 
 type star =
 | StarNone
@@ -30,7 +30,7 @@ type star =
 
 type event =
 | EventComplete
-| Event of event_symbol * event_actual list * startend * star
+| Event of event_symbol * event_formal list * startend * star
 
 type boolop =
 | BoolOr
@@ -113,9 +113,9 @@ let pp_oracle ppf = function
 | OracleTrue s -> Format.fprintf ppf "OracleTrue(@[%a@])" pp_string s
 
 let rec pp_actual ppf = function
-| EventActualOracle x -> Format.fprintf ppf "EventActualOracle(@[%a@])" pp_oracle x
-| EventActualAttribute x -> Format.fprintf ppf "EventActualAttribute(@[%a@])" pp_string x
-| EventActualNot x -> Format.fprintf ppf "EventActualNot(@[%a@])" pp_actual x
+| EventFormalOracle x -> Format.fprintf ppf "EventFormalOracle(@[%a@])" pp_oracle x
+| EventFormalAttribute x -> Format.fprintf ppf "EventFormalAttribute(@[%a@])" pp_string x
+| EventFormalNot x -> Format.fprintf ppf "EventFormalNot(@[%a@])" pp_actual x
 
 let pp_startend ppf = function
 | AtStart -> Format.fprintf ppf "AtStart"
@@ -173,9 +173,9 @@ let string_of_star = function
 | StarNotMinus -> "*!-"
 
 let rec string_of_actual = function
-| EventActualOracle x -> string_of_oracle x
-| EventActualAttribute x -> x
-| EventActualNot x -> Format.sprintf "!%s" (string_of_actual x)
+| EventFormalOracle x -> string_of_oracle x
+| EventFormalAttribute x -> x
+| EventFormalNot x -> Format.sprintf "!%s" (string_of_actual x)
 
 let string_of_event = function
 | EventComplete -> "Complete"

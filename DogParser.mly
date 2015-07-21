@@ -63,17 +63,17 @@ eventexpr:
 
 event:
 | COMPLETE { EventComplete }
-| EVENTSYM LPAR event_actual_list RPAR startend star { Event($1, $3, $5, $6) }
+| EVENTSYM LPAR event_formal_list RPAR startend star { Event($1, $3, $5, $6) }
 
-event_actual_list:
-| event_actual COMMA event_actual_list {$1::$3}
-| event_actual {[$1]}
+event_formal_list:
+| event_formal COMMA event_formal_list {$1::$3}
+| event_formal {[$1]}
 | {[]}
 
-event_actual:
-| ORACLE { EventActualOracle(tr_oracle $1) }
-| NAME { EventActualAttribute($1) }
-| BANG event_actual { EventActualNot($2) }
+event_formal:
+| ORACLE { EventFormalOracle(tr_oracle $1) }
+| NAME { EventFormalAttribute($1) }
+| BANG event_formal { EventFormalNot($2) }
 
 startend:
 | ATSTART { AtStart }

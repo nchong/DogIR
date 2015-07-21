@@ -2,11 +2,11 @@ open DogIR
 open DogGraph
 
 let rec translate_event_actual mapping = function
-| EventActualOracle x ->
+| EventFormalOracle x ->
   let keys = List.map fst mapping in
-  if (List.mem x keys) then EventActualAttribute (List.assoc x mapping)
-  else EventActualOracle x
-| EventActualNot x -> EventActualNot (translate_event_actual mapping x)
+  if (List.mem x keys) then EventFormalAttribute (List.assoc x mapping)
+  else EventFormalOracle x
+| EventFormalNot x -> EventFormalNot (translate_event_actual mapping x)
 | _ as x -> x
 
 let translate_event mapping = function
