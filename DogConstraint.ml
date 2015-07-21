@@ -2,9 +2,9 @@ open DogIR
 open DogGraph
 open Lib
 
-(* Fresh variable generator for ranging over event expressions *)
+(* Fresh variable generator for ranging over events *)
 let efresh_name = gen_counter "e"
-(* Fresh variable generator for ranging over vacuous escape expressions *)
+(* Fresh variable generator for ranging over vacuous escape events *)
 let xfresh_name = gen_counter "x"
 
 type dog_constraint =
