@@ -36,3 +36,8 @@ let gen_counter prefix =
   in
   fresh
 
+let take_while pred xs =
+  let rec aux acc = function
+    | [] -> acc
+    | x::xs -> if pred x then aux (x::acc) xs else acc
+  in List.rev (aux [] xs)

@@ -45,7 +45,7 @@ let rec string_of_constraint = function
 | ConstraintFalse -> Format.sprintf "false"
 | ConstraintTrue -> Format.sprintf "true"
 | ConstraintMatch (v, events) -> Format.sprintf "@[(%s matches {%s})@]" v (String.concat ", " (List.map string_of_event events))
-| ConstraintComplete (v, starts) -> Format.sprintf "(@[isComplete(%s, %s@)])" v (String.concat " " starts)
+| ConstraintComplete (v, starts) -> Format.sprintf "@[isComplete(%s, {%s})@]" v (String.concat ", " starts)
 | ConstraintStarOrdered (v, w) -> Format.sprintf "@[SO<=(%s,@ %s)@]" v w
 | ConstraintClockOrdered (v, w) -> Format.sprintf "@[CT<=(%s,@ %s)@]" v w
 | ConstraintClockOrderedStrict (v, w) -> Format.sprintf "@[CT<(%s,@ %s)@]" v w
@@ -90,7 +90,7 @@ let is_lonestar = function
 | _ -> false
 
 let is_complete_singleton evs =
-  List.length evs = 1 && ((List.nth evs 1) = EventComplete)
+  List.length evs = 1 && ((List.nth evs 0) = EventComplete)
 
 let starexpr_of_edgepath edgepath =
   let events = List.map events_of_eventexpr edgepath in
@@ -151,11 +151,17 @@ let progexpr_of_path dog vacuous path =
   let edgepath = edges_of_path dog.rules path in
   let events = List.map events_of_eventexpr edgepath in
   let fresh_event_vars = List.map (fun _ -> efresh_name ()) events in
-  let matches = List.map2 (fun x evs -> ConstraintMatch (x, evs)) fresh_event_vars events in
+  let matches = List.map2 (fun x evs -> if is_complete_singleton evs then ConstraintTrue else ConstraintMatch (x, evs)) fresh_event_vars events in
   let terms = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (allpairs fresh_event_vars)) in
+  let path_has_complete_event = List.exists is_complete_singleton events in
   let positive_body = conjunct terms in
   let negative_body = conjunct (List.map (vacuous_constraint dog path fresh_event_vars) vacuous) in
-  ConstraintExists (fresh_event_vars, conjunct (matches @ [positive_body; negative_body]))
+  if path_has_complete_event then
+    let complete_var = fst (List.find (fun (x, evs) -> is_complete_singleton evs) (List.combine fresh_event_vars events)) in
+    let starts = take_while (fun v -> v <> complete_var) fresh_event_vars in
+    ConstraintExists (fresh_event_vars, conjunct (matches @ [positive_body; ConstraintComplete (complete_var, starts); negative_body]))
+  else
+    ConstraintExists (fresh_event_vars, conjunct (matches @ [positive_body; negative_body]))
 
 let constraint_of_end_state dog end_state =
   let rules = dog.rules in
