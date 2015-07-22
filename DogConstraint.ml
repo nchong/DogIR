@@ -99,12 +99,13 @@ let starexpr_of_edgepath edgepath =
   let vars = List.map (fun _ -> efresh_name ()) events' in
   let event_to_var = List.combine events' vars in
   let matches = List.map (fun (ev, x) -> ConstraintMatch (x, [rmstar ev])) event_to_var in
-  let lonestar, lonestar_var = (List.find (fun (ev, _) -> is_lonestar ev) event_to_var) in
-  let star_ordered_events = List.filter (fun e -> e <> lonestar) events' in
-  let star_constraints = 
-    List.map (star_constraint_of event_to_var lonestar) star_ordered_events
-  in
-  ConstraintExists (vars, conjunct (matches @ star_constraints))
+  if List.exists is_lonestar events' then
+    let lonestar, lonestar_var = (List.find (fun (ev, _) -> is_lonestar ev) event_to_var) in
+    let star_ordered_events = List.filter (fun e -> e <> lonestar) events' in
+    let star_constraints = List.map (star_constraint_of event_to_var lonestar) star_ordered_events in
+    ConstraintExists (vars, conjunct (matches @ star_constraints))
+  else
+    ConstraintExists (vars, conjunct matches)
 
 let starexpr_of_path rules accepting path =
   let edgepath = edges_of_path rules path in
