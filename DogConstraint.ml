@@ -4,13 +4,14 @@ open Lib
 
 (* Fresh variable generator for ranging over events *)
 let efresh_name = gen_counter "e"
+(* Fresh variable generator for ranging over earlier events *)
+let ffresh_name = gen_counter "f"
 (* Fresh variable generator for ranging over vacuous escape events *)
 let xfresh_name = gen_counter "x"
 
 type dog_constraint =
 | ConstraintFalse
 | ConstraintTrue
-| ConstraintExists of event                               (* e \in Ev *)
 | ConstraintStarOrdered of event * event                  (* (e1,e2) \in so *)
 | ConstraintClockOrdered of identifier * identifier       (* (e1,e2) \in ct_leq *)
 | ConstraintClockOrderedStrict of identifier * identifier (* (e1,e2) \in ct_lt *)
@@ -20,6 +21,7 @@ type dog_constraint =
 | ConstraintImplies of dog_constraint * dog_constraint
 (* \exists e0 e1 ... \in Ev :: (e0 MATCHES E0) /\ (e1 MATCHES E1) /\ ... /\ RestOfConstraint *)
 | ConstraintPattern of (identifier * event list) list * dog_constraint 
+| ConstraintComplete of identifier * identifier list
 
 let flatten termof xs =
   let rec aux acc = function
@@ -47,7 +49,6 @@ let string_of_exist (id, evs) =
 let rec string_of_constraint = function
 | ConstraintFalse -> Format.sprintf "FALSE"
 | ConstraintTrue -> Format.sprintf "TRUE"
-| ConstraintExists e -> Format.sprintf "@[%s IN EV@]" (string_of_event e)
 | ConstraintStarOrdered (e1, e2) -> Format.sprintf "@[(%s,@ %s) IN SO@]" (string_of_event e1) (string_of_event e2)
 | ConstraintClockOrdered (x1, x2) -> Format.sprintf "@[CT<=(%s,@ %s)@]" x1 x2
 | ConstraintClockOrderedStrict (x1, x2) -> Format.sprintf "@[CT<(%s,@ %s)@]" x1 x2
@@ -56,6 +57,7 @@ let rec string_of_constraint = function
 | ConstraintOr cs -> Format.sprintf "(@[%s@])" (String.concat " \\/ " (List.map string_of_constraint cs))
 | ConstraintImplies (lhs, rhs) -> Format.sprintf "(@[%s => %s@])" (string_of_constraint lhs) (string_of_constraint rhs)
 | ConstraintPattern (exists, c) -> Format.sprintf "(@[EXISTS %s :: %s@])" (String.concat " " (List.map string_of_exist exists)) (string_of_constraint c)
+| ConstraintComplete (complete_event, starts) -> Format.sprintf "(@[ISCOMPLETE(%s, %s@)])" complete_event (String.concat " " starts)
 
 let rmstar = function
 | Event (e,alist,se,_) -> Event (e,alist,se,StarNone)
@@ -97,18 +99,22 @@ let lonestar_of edgepath =
   | 1 -> Some (List.hd stars)
   | _ -> assert false (* more than one star means dog is not well-formed (check_at_most_one_star_per_path) *)
 
+let is_complete_singleton evs =
+  List.length evs = 1 && ((List.nth evs 1) = EventComplete)
+
 let starexpr_of_edgepath edgepath =
-  let events = events_of_path edgepath in
-  let starts = (List.filter (function Event (e,alist,AtStart,_) -> true | _ -> false) events) in
-  let exist_constraints = List.map (function Event (e,alist,AtStart,_) -> ConstraintExists (Event (e,alist,AtStart,StarNone)) | _ -> assert false (* unreachable *)) starts in
+  let events = List.map events_of_eventexpr edgepath in
+  let fresh_event_vars = List.map (fun _ -> efresh_name ()) events in
+  let matches = List.map2 (fun x evs -> (x, evs)) fresh_event_vars events in
+  let all_events = events_of_path edgepath in
   let star_constraints =
-    match lonestar_of events with
+    match lonestar_of all_events with
     | Some star ->
-      let events' = List.filter (fun e -> e != star) events in
+      let events' = List.filter (fun e -> e != star) all_events in
       List.map (fun e -> star_constraint_of star e) events'
     | None -> []
   in
-  conjunct (exist_constraints @ star_constraints)
+  ConstraintPattern (matches, conjunct star_constraints)
 
 let starexpr_of_path rules accepting path =
   let edgepath = edges_of_path rules path in
@@ -140,7 +146,11 @@ let vacuous_constraint dog path vars vacuous_state =
       | None, None -> assert false (* unreachable *)
       | Some e1, None -> ConstraintClockOrdered (e1, var)
       | None, Some e2 -> ConstraintClockOrdered (var, e2)
-      | Some e1, Some e2 -> conjunct [ ConstraintClockOrdered (e1, var); ConstraintClockOrdered (var, e2) ]
+      | Some e1, Some e2 ->
+        (* TODO: constraint is dependent on priority of transition 
+           higher priority: e1 <= var <= e2
+           same   priority: e1 <= var <  e2 *)
+        conjunct [ ConstraintClockOrdered (e1, var); ConstraintClockOrdered (var, e2) ]
     in
     (exists, po)
   in
