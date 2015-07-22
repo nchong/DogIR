@@ -83,7 +83,7 @@ let has_preload rules path =
   let data = List.map (function
     | Event(_, alist, _, _) -> List.nth alist 1 (* assumes this element is the data oracle *)
     | _ -> assert false (* unreachable *)) reads in
-  (List.length data) != (List.length (nodups data))
+  (List.length data) <> (List.length (nodups data))
 
 let is_lonestar = function
 | Event (_,_,_,Star) -> true
