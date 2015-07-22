@@ -15,9 +15,9 @@ let allpairs l =
   List.map2 (fun x y -> (x,y)) xs ys
 
 (* available in 4.02.0 *)
-let rec pp_print_list pp_v ppf = function
+let rec pp_print_list ?(sep=";") pp_v ppf = function
   | [] -> ()
-  | x::xs -> Format.fprintf ppf "@[%a;@]" pp_v x; pp_print_list pp_v ppf xs
+  | x::xs -> Format.fprintf ppf "@[%a%s@]" pp_v x sep; pp_print_list ~sep pp_v ppf xs
 
 (* cartesian product *)
 (* e.g., cartesian [1;2;3] [a;b] -> [(1,a);(1,b);(2,a);(2,b);(3,a);(3,b)] *)

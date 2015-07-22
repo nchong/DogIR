@@ -64,7 +64,7 @@ let main () =
   if (!emitfox) then (
     printf "Computed constraint\n";
     let fox = constraint_of_dog dog in
-    printf "%s\n" (string_of_constraint fox)
+    printf "%s\n" (string_of_constraint fox); print_newline ();
   );
   exit 0
       

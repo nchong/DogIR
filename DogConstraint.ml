@@ -12,16 +12,16 @@ let xfresh_name = gen_counter "x"
 type dog_constraint =
 | ConstraintFalse
 | ConstraintTrue
-| ConstraintStarOrdered of event * event                  (* (e1,e2) \in so *)
+| ConstraintMatch of identifier * event list
+| ConstraintComplete of identifier * identifier list
+| ConstraintStarOrdered of identifier * identifier        (* (e1,e2) \in so *)
 | ConstraintClockOrdered of identifier * identifier       (* (e1,e2) \in ct_leq *)
 | ConstraintClockOrderedStrict of identifier * identifier (* (e1,e2) \in ct_lt *)
 | ConstraintNot of dog_constraint
 | ConstraintAnd of dog_constraint list
 | ConstraintOr of dog_constraint list
 | ConstraintImplies of dog_constraint * dog_constraint
-(* \exists e0 e1 ... \in Ev :: (e0 MATCHES E0) /\ (e1 MATCHES E1) /\ ... /\ RestOfConstraint *)
-| ConstraintPattern of (identifier * event list) list * dog_constraint 
-| ConstraintComplete of identifier * identifier list
+| ConstraintExists of (identifier list) * dog_constraint (* \exists e0 e1 ... \in Ev :: ... *)
 
 let flatten termof xs =
   let rec aux acc = function
@@ -40,41 +40,38 @@ let disjunct constraints =
   | [] -> ConstraintTrue
   | _ -> ConstraintOr (flatten (function | ConstraintOr cs -> cs | _ as c -> [c]) constraints)
 
-let pp_exists ppf (id, evs) =
-  Format.fprintf ppf "(%a,@ %a)" pp_string id (pp_print_list pp_event) evs
-
-let string_of_exist (id, evs) =
-  Format.sprintf "@[(%s MATCHES {%s})@]" id (String.concat ", " (List.map string_of_event evs))
-
+(* v,w range over identifiers *)
 let rec string_of_constraint = function
-| ConstraintFalse -> Format.sprintf "FALSE"
-| ConstraintTrue -> Format.sprintf "TRUE"
-| ConstraintStarOrdered (e1, e2) -> Format.sprintf "@[(%s,@ %s) IN SO@]" (string_of_event e1) (string_of_event e2)
-| ConstraintClockOrdered (x1, x2) -> Format.sprintf "@[CT<=(%s,@ %s)@]" x1 x2
-| ConstraintClockOrderedStrict (x1, x2) -> Format.sprintf "@[CT<(%s,@ %s)@]" x1 x2
-| ConstraintNot c -> Format.sprintf "NOT(@[%s@])" (string_of_constraint c)
-| ConstraintAnd cs -> Format.sprintf "(@[%s@])" (String.concat " /\\ " (List.map string_of_constraint cs))
-| ConstraintOr cs -> Format.sprintf "(@[%s@])" (String.concat " \\/ " (List.map string_of_constraint cs))
-| ConstraintImplies (lhs, rhs) -> Format.sprintf "(@[%s => %s@])" (string_of_constraint lhs) (string_of_constraint rhs)
-| ConstraintPattern (exists, c) -> Format.sprintf "(@[EXISTS %s :: %s@])" (String.concat " " (List.map string_of_exist exists)) (string_of_constraint c)
-| ConstraintComplete (complete_event, starts) -> Format.sprintf "(@[ISCOMPLETE(%s, %s@)])" complete_event (String.concat " " starts)
+| ConstraintFalse -> Format.sprintf "false"
+| ConstraintTrue -> Format.sprintf "true"
+| ConstraintMatch (v, events) -> Format.sprintf "@[(%s matches {%s})@]" v (String.concat ", " (List.map string_of_event events))
+| ConstraintComplete (v, starts) -> Format.sprintf "(@[isComplete(%s, %s@)])" v (String.concat " " starts)
+| ConstraintStarOrdered (v, w) -> Format.sprintf "@[SO<=(%s,@ %s)@]" v w
+| ConstraintClockOrdered (v, w) -> Format.sprintf "@[CT<=(%s,@ %s)@]" v w
+| ConstraintClockOrderedStrict (v, w) -> Format.sprintf "@[CT<(%s,@ %s)@]" v w
+| ConstraintNot subterm -> Format.sprintf "not(@[%s@])" (string_of_constraint subterm)
+| ConstraintAnd conjuncts -> Format.sprintf "@[%s@]" (String.concat " /\\ " (List.map string_of_constraint conjuncts))
+| ConstraintOr disjuncts -> Format.sprintf "@[%s@]" (String.concat " \\/ " (List.map string_of_constraint disjuncts))
+| ConstraintImplies (lhs, rhs) -> Format.sprintf "@[%s @,=>@, %s@]" (string_of_constraint lhs) (string_of_constraint rhs)
+| ConstraintExists (vs, subterm) -> Format.sprintf "@[exists %s in Events @,::@, %s@]" (String.concat ", " vs) (string_of_constraint subterm)
 
 let rmstar = function
 | Event (e,alist,se,_) -> Event (e,alist,se,StarNone)
 | _ as e -> e
 
-let star_constraint_of e1 e2 =
-  let e1', e2' = rmstar e1, rmstar e2 in
-  match e1, e2 with
-  | Event (_,_,_,Star), Event (_,_,_,star) -> begin
+let star_constraint_of event_to_var lonestar event =
+  let lonestar_var = List.assoc lonestar event_to_var in
+  let star_var = List.assoc event event_to_var in
+  match event with
+  | Event (_,_,_,star) -> begin
     match star with
-    | StarPlus -> ConstraintStarOrdered (e1', e2')
-    | StarMinus -> ConstraintStarOrdered (e2', e1')
-    | StarNotPlus -> ConstraintNot (ConstraintStarOrdered (e1', e2'))
-    | StarNotMinus -> ConstraintNot (ConstraintStarOrdered (e2', e1'))
+    | StarPlus -> ConstraintStarOrdered (lonestar_var, star_var)
+    | StarMinus -> ConstraintStarOrdered (star_var, lonestar_var)
+    | StarNotPlus -> ConstraintNot (ConstraintStarOrdered (lonestar_var, star_var))
+    | StarNotMinus -> ConstraintNot (ConstraintStarOrdered (star_var, lonestar_var))
     | _ -> assert false (* unreachable *)
   end
-  | _, _ -> assert false (* unreachable *)
+  | _ -> assert false (* unreachable *)
 
 let is_data_oracle = function
 | Oracle id | OracleExists id | OracleTrue id -> id.[0] = 'D'
@@ -92,29 +89,22 @@ let is_lonestar = function
 | Event (_,_,_,Star) -> true
 | _ -> false
 
-let lonestar_of edgepath =
-  let stars = List.filter is_lonestar edgepath in
-  match List.length stars with
-  | 0 -> None
-  | 1 -> Some (List.hd stars)
-  | _ -> assert false (* more than one star means dog is not well-formed (check_at_most_one_star_per_path) *)
-
 let is_complete_singleton evs =
   List.length evs = 1 && ((List.nth evs 1) = EventComplete)
 
 let starexpr_of_edgepath edgepath =
   let events = List.map events_of_eventexpr edgepath in
-  let fresh_event_vars = List.map (fun _ -> efresh_name ()) events in
-  let matches = List.map2 (fun x evs -> (x, evs)) fresh_event_vars events in
-  let all_events = events_of_path edgepath in
-  let star_constraints =
-    match lonestar_of all_events with
-    | Some star ->
-      let events' = List.filter (fun e -> e != star) all_events in
-      List.map (fun e -> star_constraint_of star e) events'
-    | None -> []
+  let singleton_events = List.filter (fun evs -> List.length evs = 1) events in
+  let events' = List.flatten singleton_events in
+  let vars = List.map (fun _ -> efresh_name ()) events' in
+  let event_to_var = List.combine events' vars in
+  let matches = List.map (fun (ev, x) -> ConstraintMatch (x, [rmstar ev])) event_to_var in
+  let lonestar, lonestar_var = (List.find (fun (ev, _) -> is_lonestar ev) event_to_var) in
+  let star_ordered_events = List.filter (fun e -> e <> lonestar) events' in
+  let star_constraints = 
+    List.map (star_constraint_of event_to_var lonestar) star_ordered_events
   in
-  ConstraintPattern (matches, conjunct star_constraints)
+  ConstraintExists (vars, conjunct (matches @ star_constraints))
 
 let starexpr_of_path rules accepting path =
   let edgepath = edges_of_path rules path in
@@ -140,9 +130,9 @@ let vacuous_constraint dog path vars vacuous_state =
   let constraint_of state =
     let _,xexpr,_ = G.find_edge dog.rules state vacuous_state in
     let var = xfresh_name () in
-    let exists = (var, events_of_eventexpr xexpr) in
+    let matches = ConstraintMatch (var, events_of_eventexpr xexpr) in
     let prev, next = List.assoc state state_to_vars in
-    let po = match prev, next with
+    let order = match prev, next with
       | None, None -> assert false (* unreachable *)
       | Some e1, None -> ConstraintClockOrdered (e1, var)
       | None, Some e2 -> ConstraintClockOrdered (var, e2)
@@ -152,22 +142,20 @@ let vacuous_constraint dog path vars vacuous_state =
            same   priority: e1 <= var <  e2 *)
         conjunct [ ConstraintClockOrdered (e1, var); ConstraintClockOrdered (var, e2) ]
     in
-    (exists, po)
+    ConstraintNot (ConstraintExists ([var], conjunct [matches; order]))
   in
   let constraints = List.map constraint_of preds_in_path in
-  let exists = List.map (fun (e,_) -> e) constraints in
-  let pos = List.map (fun (_,p) -> p) constraints in
-  ConstraintNot (ConstraintPattern (exists, (conjunct pos)))
+  conjunct constraints
 
 let progexpr_of_path dog vacuous path =
   let edgepath = edges_of_path dog.rules path in
   let events = List.map events_of_eventexpr edgepath in
   let fresh_event_vars = List.map (fun _ -> efresh_name ()) events in
-  let matches = List.map2 (fun x evs -> (x, evs)) fresh_event_vars events in
+  let matches = List.map2 (fun x evs -> ConstraintMatch (x, evs)) fresh_event_vars events in
   let terms = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (allpairs fresh_event_vars)) in
   let positive_body = conjunct terms in
   let negative_body = conjunct (List.map (vacuous_constraint dog path fresh_event_vars) vacuous) in
-  ConstraintPattern (matches, conjunct [positive_body; negative_body])
+  ConstraintExists (fresh_event_vars, conjunct (matches @ [positive_body; negative_body]))
 
 let constraint_of_end_state dog end_state =
   let rules = dog.rules in
