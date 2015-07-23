@@ -88,15 +88,22 @@ let is_num = function
 | ExprNum _ -> true
 | _ -> false
 
-let sync_assignments_of_eventexpr ev =
+let sync_assigns_of_eventexpr eventexpr =
   let rec aux ev acc =
     match ev with
     | ExprAssign (e1,e2) ->
-      if is_identifier e1 && is_num e2 then (e1,e2)::acc else acc
+      if is_identifier e1 && is_num e2 then ev::acc else acc
     | ExprIdentifier _ | ExprNum _ | ExprNot _ | ExprEvent _ -> acc
     | ExprBool (_,e1,e2) -> aux e1 (aux e2 acc)
   in
-  aux ev []
+  aux eventexpr []
+
+let sync_equalities_of_eventexpr = function
+  | ExprBool (b,e1,e2) ->
+    (match b, e1, e2 with
+    | BoolEq, ExprIdentifier x, ExprNum n -> Some (x,n)
+    | _, _, _ -> None)
+  | _ -> None
 
 (* slice string s from index [n:m] *)
 let slice s n m =

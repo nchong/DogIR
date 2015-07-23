@@ -2,9 +2,9 @@ open DogIR
 open DogGraph
 open Lib
 
-(* Fresh variable generator for ranging over events *)
+(* Fresh variable generator for ranging over LS events *)
 let efresh_name = gen_counter "e"
-(* Fresh variable generator for ranging over earlier events *)
+(* Fresh variable generator for ranging over RW events *)
 let ffresh_name = gen_counter "f"
 (* Fresh variable generator for ranging over vacuous escape events *)
 let xfresh_name = gen_counter "x"
@@ -96,7 +96,7 @@ let starexpr_of_edgepath edgepath =
   let events = List.map events_of_eventexpr edgepath in
   let singleton_events = List.filter (fun evs -> List.length evs = 1) events in
   let events' = List.flatten singleton_events in
-  let vars = List.map (fun _ -> efresh_name ()) events' in
+  let vars = List.map (fun _ -> ffresh_name ()) events' in
   let event_to_var = List.combine events' vars in
   let matches = List.map (fun (ev, x) -> ConstraintMatch (x, [rmstar ev])) event_to_var in
   if List.exists is_lonestar events' then
@@ -150,6 +150,12 @@ let vacuous_constraint dog path vars vacuous_state =
 
 let progexpr_of_path dog vacuous path =
   let edgepath = edges_of_path dog.rules path in
+  let sync_assigns = List.map sync_assigns_of_eventexpr edgepath in
+  let _ =
+    Printf.printf "edgepath: [%s]\n" (String.concat "; " (List.map string_of_eventexpr edgepath));
+    Printf.printf "edgepath: [%s]\n" 
+      (String.concat "# " (List.map (fun xs -> String.concat "; " (List.map string_of_eventexpr xs)) sync_assigns))
+  in
   let events = List.map events_of_eventexpr edgepath in
   let fresh_event_vars = List.map (fun _ -> efresh_name ()) events in
   let matches = List.map2 (fun x evs -> if is_complete_singleton evs then ConstraintTrue else ConstraintMatch (x, evs)) fresh_event_vars events in
