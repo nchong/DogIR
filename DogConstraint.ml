@@ -98,14 +98,15 @@ let starexpr_of_edgepath edgepath =
   let events' = List.flatten singleton_events in
   let vars = List.map (fun _ -> ffresh_name ()) events' in
   let event_to_var = List.combine events' vars in
-  let matches = List.map (fun (ev, x) -> ConstraintMatch (x, [rmstar ev])) event_to_var in
+  let match_constraints = List.map (fun (ev, x) -> ConstraintMatch (x, [rmstar ev])) event_to_var in
+  let clock_constraints = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (all_adjacent_pairs vars)) in
   if List.exists is_lonestar events' then
     let lonestar, lonestar_var = (List.find (fun (ev, _) -> is_lonestar ev) event_to_var) in
     let star_ordered_events = List.filter (fun e -> e <> lonestar) events' in
     let star_constraints = List.map (star_constraint_of event_to_var lonestar) star_ordered_events in
-    ConstraintExists (vars, conjunct (matches @ star_constraints))
+    ConstraintExists (vars, conjunct (match_constraints @ clock_constraints @ star_constraints))
   else
-    ConstraintExists (vars, conjunct matches)
+    ConstraintExists (vars, conjunct (match_constraints @ clock_constraints))
 
 let starexpr_of_path rules accepting path =
   let edgepath = edges_of_path rules path in
@@ -124,7 +125,7 @@ let starexpr_of_path rules accepting path =
     conjunct (edgeexpr :: nots)
 
 let vacuous_constraint dog path vars vacuous_state =
-  let varpairs = (allpairs ([None] @ (List.map (fun x -> Some x) vars) @ [None])) in
+  let varpairs = (all_adjacent_pairs ([None] @ (List.map (fun x -> Some x) vars) @ [None])) in
   let state_to_vars = List.map2 (fun s from_to -> (s, from_to)) path varpairs in
   let preds = predecessors_of_state dog vacuous_state in
   let preds_in_path = List.filter (fun s -> List.mem s preds) path in
@@ -159,7 +160,7 @@ let progexpr_of_path dog vacuous path =
   let events = List.map events_of_eventexpr edgepath in
   let fresh_event_vars = List.map (fun _ -> efresh_name ()) events in
   let matches = List.map2 (fun x evs -> if is_complete_singleton evs then ConstraintTrue else ConstraintMatch (x, evs)) fresh_event_vars events in
-  let terms = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (allpairs fresh_event_vars)) in
+  let terms = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (all_adjacent_pairs fresh_event_vars)) in
   let path_has_complete_event = List.exists is_complete_singleton events in
   let positive_body = conjunct terms in
   let negative_body = conjunct (List.map (vacuous_constraint dog path fresh_event_vars) vacuous) in

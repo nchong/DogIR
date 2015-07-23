@@ -119,7 +119,7 @@ let edges_of_path rules path =
   let edge_between s s' =
     let _,e,_ = G.find_edge rules s s' in e
   in
-  List.map (fun (s, s') -> edge_between s s') (allpairs path)
+  List.map (fun (s, s') -> edge_between s s') (all_adjacent_pairs path)
 
 (* Dot interface *)
 

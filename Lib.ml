@@ -8,11 +8,13 @@ let nodups l =
 
 (* return all adjacent pairs of l *)
 (* e.g., [1;2;3] -> [(1,2);(2,3)] *)
-let allpairs l =
-  let _ = assert (1 < List.length l) in
-  let xs = List.rev (List.tl (List.rev l)) in
-  let ys = List.tl l in
-  List.map2 (fun x y -> (x,y)) xs ys
+let all_adjacent_pairs l =
+  if List.length l <= 1 then
+    []
+  else
+    let xs = List.rev (List.tl (List.rev l)) in
+    let ys = List.tl l in
+    List.map2 (fun x y -> (x,y)) xs ys
 
 (* available in 4.02.0 *)
 let rec pp_print_list ?(sep=";") pp_v ppf = function
