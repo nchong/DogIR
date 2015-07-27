@@ -7,7 +7,7 @@ L2 -> L3: LD(A0,D0)@s;
 L3 -> L4: LD(A0,D0)@e;
 
 (* escape *)
-L1 -> L0: ST(A0,D0)@s || LD(A0,!D0)@s;
+L2 -> L0: ST(A0,D0)@s || LD(A0,!D0)@s;
 
 M1 -> M2: start == 1;
 M2 -> M3: RD(A0,D0)@s;

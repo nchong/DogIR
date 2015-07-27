@@ -160,17 +160,6 @@ let check_exactly_one_initial_state dog =
   in
   !ok
 
-(* Check at most sync assign per eventexpr edge *)
-let check_at_most_one_sync_assign_per_edge dog =
-  let ok = ref true in
-  let check_edge (_,eventexpr,_) =
-    let sync_assigns = sync_assigns_of_eventexpr eventexpr in
-    if List.length sync_assigns <= 1 then ()
-    else (Printf.printf "Error: More than one sync assign in edge [%s]\n" (string_of_eventexpr eventexpr); ok := false)
-  in
-  let _ = G.iter_edges_e check_edge dog.rules in
-  !ok
-
 (* List of checks and accompanying error message *)
 let checks = [(check_initial_states, "Initial state statement are not well-defined\n");
               (check_assert_states, "Assert expression does not use defined states\n");
@@ -181,7 +170,6 @@ let checks = [(check_initial_states, "Initial state statement are not well-defin
               (check_no_repeating_events, "State with same event on different edges\n");
               (check_no_conjuncted_events, "Edge with conjunction of events\n");
               (check_exactly_one_initial_state, "State in assert reachable from multiple initial states\n");
-              (check_at_most_one_sync_assign_per_edge, "Edge with >1 sync assignment");
              ]
 
 let warn_all_initial_states_labelled dog =
