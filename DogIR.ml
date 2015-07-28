@@ -101,7 +101,7 @@ let sync_assign_of_eventexpr eventexpr =
   | 1 -> Some (List.hd sync_assigns)
   | _ -> assert false (* wf condition *)
 
-let sync_equalities_of_eventexpr = function
+let sync_eq_of_eventexpr = function
   | ExprBool (b,e1,e2) ->
     (match b, e1, e2 with
     | BoolEq, ExprIdentifier x, ExprNum n -> Some (x,n)

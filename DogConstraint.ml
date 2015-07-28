@@ -130,7 +130,7 @@ let generate_rwpath_syncs edgepath event_var_pairs =
     | _ -> var_of opt
   ) event_var_pairs in
   let sync_assigns = List.map sync_assign_of_eventexpr edgepath in
-  let sync_eqs = List.map sync_equalities_of_eventexpr edgepath in
+  let sync_eqs = List.map sync_eq_of_eventexpr edgepath in
   let path_sync_assigns = make_sync_map sync_vars sync_assigns in
   let path_sync_eqs = make_sync_map sync_vars sync_eqs in
   path_sync_assigns, path_sync_eqs
@@ -213,7 +213,7 @@ let vacuous_constraint dog path vars vacuous_state =
 
 let generate_lspath_syncs edgepath vars =
   let sync_assigns = List.map sync_assign_of_eventexpr edgepath in
-  let sync_eqs = List.map sync_equalities_of_eventexpr edgepath in
+  let sync_eqs = List.map sync_eq_of_eventexpr edgepath in
   let path_sync_assigns = make_sync_map vars sync_assigns in
   let path_sync_eqs = make_sync_map vars sync_eqs in
   path_sync_assigns, path_sync_eqs
