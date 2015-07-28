@@ -106,19 +106,19 @@ let make_sync_map event_vars syncs =
 
 exception No_next_event
 
-let starexpr_of_edgepath edgepath =
-  let rev_event_var_pairs = List.fold_left 
-    (fun acc eventexpr ->
-      let events = events_of_eventexpr eventexpr in
-      match List.length events with
-      | 0 -> None :: acc
-      | 1 ->
-        let event = List.hd events in
-        Some (event, ffresh_name ()) :: acc
-      | _ -> assert false (* wf condition *))
-    [] edgepath
+let generate_rwpath_vars edgepath =
+  let gather acc eventexpr =
+    let events = events_of_eventexpr eventexpr in
+    match List.length events with
+    | 0 -> None :: acc
+    | 1 ->
+      let event = List.hd events in
+      Some (event, ffresh_name ()) :: acc
+    | _ -> assert false (* wf condition *)
   in
-  let event_var_pairs = List.rev rev_event_var_pairs in
+  List.rev (List.fold_left gather [] edgepath)
+
+let generate_rwpath_syncs edgepath event_var_pairs =
   let var_of = function
     | None -> assert false
     | Some (_, v) -> v
@@ -133,8 +133,6 @@ let starexpr_of_edgepath edgepath =
       with Not_found -> raise No_next_event)
     | _ -> var_of opt
   ) event_var_pairs in
-  let event_to_var = remove_some (List.filter (fun x -> x <> None) event_var_pairs) in
-  let events', vars  = List.split event_to_var in
   let sync_assigns = List.map sync_assigns_of_eventexpr edgepath in
   let sync_eqs = List.map sync_equalities_of_eventexpr edgepath in
   let path_sync_assigns = make_sync_map sync_vars sync_assigns in
@@ -143,6 +141,13 @@ let starexpr_of_edgepath edgepath =
     Printf.printf "path_sync_assigns = [%s]\n" (print_sync path_sync_assigns);
     Printf.printf "path_sync_eqs     = [%s]\n" (print_sync path_sync_eqs);
   in
+  path_sync_assigns, path_sync_eqs
+
+let starexpr_of_edgepath edgepath =
+  let event_var_pairs = generate_rwpath_vars edgepath in
+  let _ = generate_rwpath_syncs edgepath event_var_pairs in
+  let event_to_var = remove_some (List.filter (fun x -> x <> None) event_var_pairs) in
+  let events', vars  = List.split event_to_var in
   let match_constraints = List.map (fun (ev, x) -> ConstraintMatch (x, [rmstar ev])) event_to_var in
   let clock_constraints = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (all_adjacent_pairs vars)) in
   if List.exists is_lonestar events' then
