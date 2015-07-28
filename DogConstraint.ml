@@ -64,9 +64,6 @@ type dog_constraint_t = {
   sync_eqs: (identifier * (identifier * number)) list;
 }
 
-let is_data_oracle = function
-| Oracle id | OracleExists id | OracleTrue id -> id.[0] = 'D'
-
 let is_lonestar = function
 | Event (_,_,_,Star) -> true
 | _ -> false
