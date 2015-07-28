@@ -2,6 +2,9 @@ open DogIR
 open DogGraph
 open Lib
 
+let print_sync syncs =
+  String.concat "# " (List.map (fun (v, (x,n)) -> Format.sprintf "(%s, (%s,%d))" v x n) syncs)
+
 (* Fresh variable generator for ranging over LS events *)
 let efresh_name = gen_counter "e"
 (* Fresh variable generator for ranging over RW events *)
@@ -53,7 +56,7 @@ let rec string_of_constraint = function
 | ConstraintAnd conjuncts -> Format.sprintf "@[%s@]" (String.concat " /\\ " (List.map string_of_constraint conjuncts))
 | ConstraintOr disjuncts -> Format.sprintf "@[%s@]" (String.concat " \\/ " (List.map string_of_constraint disjuncts))
 | ConstraintImplies (lhs, rhs) -> Format.sprintf "@[%s @,=>@, %s@]" (string_of_constraint lhs) (string_of_constraint rhs)
-| ConstraintExists (vs, subterm) -> Format.sprintf "@[exists %s in Events @,::@, %s@]" (String.concat ", " vs) (string_of_constraint subterm)
+| ConstraintExists (vs, subterm) -> Format.sprintf "@[(exists %s in Events @,::@, %s)@]" (String.concat ", " vs) (string_of_constraint subterm)
 
 let rmstar = function
 | Event (e,alist,se,_) -> Event (e,alist,se,StarNone)
@@ -92,12 +95,54 @@ let is_lonestar = function
 let is_complete_singleton evs =
   List.length evs = 1 && ((List.nth evs 0) = EventComplete)
 
+let make_sync_map event_vars syncs =
+  let pairs = List.combine event_vars syncs in
+  let filtered = List.filter (fun (_, sync) -> sync <> None) pairs in
+  let remove_some = function
+    | None -> assert false (* unreachable *)
+    | Some x -> x
+  in
+  List.map (fun (event_var, sync) -> event_var, remove_some sync) filtered
+
+exception No_next_event
+
 let starexpr_of_edgepath edgepath =
-  let events = List.map events_of_eventexpr edgepath in
-  let singleton_events = List.filter (fun evs -> List.length evs = 1) events in
-  let events' = List.flatten singleton_events in
-  let vars = List.map (fun _ -> ffresh_name ()) events' in
-  let event_to_var = List.combine events' vars in
+  let rev_event_var_pairs = List.fold_left 
+    (fun acc eventexpr ->
+      let events = events_of_eventexpr eventexpr in
+      match List.length events with
+      | 0 -> None :: acc
+      | 1 ->
+        let event = List.hd events in
+        Some (event, ffresh_name ()) :: acc
+      | _ -> assert false (* wf condition *))
+    [] edgepath
+  in
+  let event_var_pairs = List.rev rev_event_var_pairs in
+  let var_of = function
+    | None -> assert false
+    | Some (_, v) -> v
+  in
+  let sync_vars = List.mapi (fun i opt ->
+    match opt with
+    | None ->
+      let tail = tail_from event_var_pairs i in
+      (try
+        let opt' = List.find (fun x -> x <> None) tail in
+        var_of opt'
+      with Not_found -> raise No_next_event)
+    | _ -> var_of opt
+  ) event_var_pairs in
+  let event_to_var = remove_some (List.filter (fun x -> x <> None) event_var_pairs) in
+  let events', vars  = List.split event_to_var in
+  let sync_assigns = List.map sync_assigns_of_eventexpr edgepath in
+  let sync_eqs = List.map sync_equalities_of_eventexpr edgepath in
+  let path_sync_assigns = make_sync_map sync_vars sync_assigns in
+  let path_sync_eqs = make_sync_map sync_vars sync_eqs in
+  let _ =
+    Printf.printf "path_sync_assigns = [%s]\n" (print_sync path_sync_assigns);
+    Printf.printf "path_sync_eqs     = [%s]\n" (print_sync path_sync_eqs);
+  in
   let match_constraints = List.map (fun (ev, x) -> ConstraintMatch (x, [rmstar ev])) event_to_var in
   let clock_constraints = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (all_adjacent_pairs vars)) in
   if List.exists is_lonestar events' then
@@ -151,14 +196,16 @@ let vacuous_constraint dog path vars vacuous_state =
 
 let progexpr_of_path dog vacuous path =
   let edgepath = edges_of_path dog.rules path in
-  let sync_assigns = List.map sync_assigns_of_eventexpr edgepath in
-  let _ =
-    Printf.printf "edgepath: [%s]\n" (String.concat "; " (List.map string_of_eventexpr edgepath));
-    Printf.printf "edgepath: [%s]\n" 
-      (String.concat "# " (List.map (fun xs -> String.concat "; " (List.map string_of_eventexpr xs)) sync_assigns))
-  in
   let events = List.map events_of_eventexpr edgepath in
   let fresh_event_vars = List.map (fun _ -> efresh_name ()) events in
+  let sync_assigns = List.map sync_assigns_of_eventexpr edgepath in
+  let sync_eqs = List.map sync_equalities_of_eventexpr edgepath in
+  let path_sync_assigns = make_sync_map fresh_event_vars sync_assigns in
+  let path_sync_eqs = make_sync_map fresh_event_vars sync_eqs in
+  let _ =
+    Printf.printf "path_sync_assigns = [%s]\n" (print_sync path_sync_assigns);
+    Printf.printf "path_sync_eqs     = [%s]\n" (print_sync path_sync_eqs);
+  in
   let matches = List.map2 (fun x evs -> if is_complete_singleton evs then ConstraintTrue else ConstraintMatch (x, evs)) fresh_event_vars events in
   let terms = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (all_adjacent_pairs fresh_event_vars)) in
   let path_has_complete_event = List.exists is_complete_singleton events in
@@ -191,12 +238,36 @@ let constraint_of_end_state dog end_state =
     let terms = List.map (starexpr_of_path rules accepting) paths_no_preload in
     disjunct terms
 
+let hoist_sync_vars formula (syncs:(identifier list * identifier) list) =
+  let sync_assigns = List.flatten (List.map fst syncs) in
+  let sync_equalities = List.map snd syncs in
+  let sync_vars = sync_assigns @ sync_equalities in
+  let is_sync_equality removed =
+    List.length removed = 1 && List.mem (List.hd removed) sync_equalities
+  in
+  let rec hoist = function
+    | ConstraintNot subformula -> hoist subformula
+    | ConstraintAnd conjuncts -> ConstraintAnd (List.map hoist conjuncts)
+    | ConstraintOr disjuncts -> ConstraintOr (List.map hoist disjuncts)
+    | ConstraintImplies (lhs, rhs) -> ConstraintImplies (hoist lhs, hoist rhs)
+    | ConstraintExists (vs, subterm) ->
+      let removed, vs' = List.partition (fun v -> List.mem v sync_vars) vs in
+      let subterm' = hoist subterm in
+      if is_sync_equality removed then
+        conjunct [subterm'; ConstraintClockOrdered ("dummy", "sync")]
+      else
+        ConstraintExists (vs', subterm')
+    | _ as formula -> formula
+  in
+  ConstraintExists (sync_vars, hoist formula)
+
 (* TODO: better to rewrite assertion without assuming structure of formula *)
 let constraint_of_assert dog assertion =
   let lhs, rhs = assertion in
   let lhs_terms = List.map (constraint_of_end_state dog) lhs in
   let rhs_terms = List.map (constraint_of_end_state dog) rhs in
-  ConstraintImplies (disjunct lhs_terms, disjunct rhs_terms)
+  let formula = ConstraintImplies (disjunct lhs_terms, disjunct rhs_terms) in
+  hoist_sync_vars formula [(["e0"], "f0")]
 
 let constraint_of_dog dog =
   let dog' = expand_letdefs dog in

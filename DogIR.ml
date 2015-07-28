@@ -91,12 +91,12 @@ let is_num = function
 let sync_assigns_of_eventexpr eventexpr =
   let rec aux ev acc =
     match ev with
-    | ExprAssign (e1,e2) ->
-      if is_identifier e1 && is_num e2 then ev::acc else acc
-    | ExprIdentifier _ | ExprNum _ | ExprNot _ | ExprEvent _ -> acc
+    | ExprAssign (ExprIdentifier x, ExprNum n) -> (x,n)::acc
+    | ExprAssign (_, _) -> acc | ExprIdentifier _ | ExprNum _ | ExprNot _ | ExprEvent _ -> acc
     | ExprBool (_,e1,e2) -> aux e1 (aux e2 acc)
   in
-  aux eventexpr []
+  let sync_assigns = aux eventexpr [] in
+  if sync_assigns = [] then None else Some (List.hd sync_assigns)
 
 let sync_equalities_of_eventexpr = function
   | ExprBool (b,e1,e2) ->
