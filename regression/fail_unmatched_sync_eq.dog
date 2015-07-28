@@ -1,0 +1,4 @@
+(* Failing test *)
+
+L1 -> L2: LD(A0,D0)@s && start := 1;
+M1 -> M2: begin == 1; (* begin not assigned *)
