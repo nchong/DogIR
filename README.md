@@ -11,6 +11,10 @@ Simple test:
 
 $ ./top.native -i tests/mp_load-load.dog -emitir
 
+Regression (assuming bash):
+
+$ for test in regression/*.dog; do ./top.native -i $test; done
+
 Notes
 -----
 
