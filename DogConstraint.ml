@@ -2,9 +2,6 @@ open DogIR
 open DogGraph
 open Lib
 
-let print_sync syncs =
-  String.concat "# " (List.map (fun (v, (x,n)) -> Format.sprintf "(%s, (%s,%d))" v x n) syncs)
-
 (* Fresh variable generator for ranging over LS events *)
 let efresh_name = gen_counter "e"
 (* Fresh variable generator for ranging over RW events *)
@@ -64,13 +61,6 @@ type dog_constraint_t = {
   sync_eqs: (identifier * (identifier * number)) list;
 }
 
-let is_lonestar = function
-| Event (_,_,_,Star) -> true
-| _ -> false
-
-let is_complete_singleton evs =
-  List.length evs = 1 && ((List.nth evs 0) = EventComplete)
-
 let make_sync_map event_vars syncs =
   let pairs = List.combine event_vars syncs in
   let filtered = List.filter (fun (_, sync) -> sync <> None) pairs in
@@ -79,6 +69,9 @@ let make_sync_map event_vars syncs =
     | Some x -> x
   in
   List.map (fun (event_var, sync) -> event_var, remove_some sync) filtered
+
+let print_sync syncs =
+  String.concat "# " (List.map (fun (v, (x,n)) -> Format.sprintf "(%s, (%s,%d))" v x n) syncs)
 
 (* RW constraint generation *)
 
@@ -143,6 +136,10 @@ let generate_rwpath_syncs edgepath event_var_pairs =
 let rmstar = function
 | Event (e,alist,se,_) -> Event (e,alist,se,StarNone)
 | _ as e -> e
+
+let is_lonestar = function
+| Event (_,_,_,Star) -> true
+| _ -> false
 
 let starexpr_of_edgepath edgepath =
   let event_var_pairs = generate_rwpath_vars edgepath in
@@ -210,6 +207,9 @@ let generate_lspath_syncs edgepath vars =
   let path_sync_assigns = make_sync_map vars sync_assigns in
   let path_sync_eqs = make_sync_map vars sync_eqs in
   path_sync_assigns, path_sync_eqs
+
+let is_complete_singleton evs =
+  List.length evs = 1 && ((List.nth evs 0) = EventComplete)
 
 let progexpr_of_path dog vacuous path =
   let edgepath = edges_of_path dog.rules path in
