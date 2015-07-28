@@ -21,6 +21,7 @@ type dog_constraint =
 | ConstraintAnd of dog_constraint list
 | ConstraintOr of dog_constraint list
 | ConstraintImplies of dog_constraint * dog_constraint
+| ConstraintSync of identifier list * identifier
 | ConstraintExists of (identifier list) * dog_constraint (* \exists e0 e1 ... \in Ev :: ... *)
 
 let flatten termof xs =
@@ -53,6 +54,7 @@ let rec string_of_constraint = function
 | ConstraintAnd conjuncts -> Format.sprintf "@[%s@]" (String.concat " /\\ " (List.map string_of_constraint conjuncts))
 | ConstraintOr disjuncts -> Format.sprintf "@[%s@]" (String.concat " \\/ " (List.map string_of_constraint disjuncts))
 | ConstraintImplies (lhs, rhs) -> Format.sprintf "@[%s @,=>@, %s@]" (string_of_constraint lhs) (string_of_constraint rhs)
+| ConstraintSync (vs, w) -> Format.sprintf "@[sync([%s], %s)@]" (String.concat ", " vs) w
 | ConstraintExists (vs, subterm) -> Format.sprintf "@[(exists %s in Events @,::@, %s)@]" (String.concat ", " vs) (string_of_constraint subterm)
 
 type dog_constraint_t = {
@@ -256,9 +258,10 @@ let hoist_sync_vars formula (syncs:(identifier list * identifier) list) =
   let sync_assigns = List.flatten (List.map fst syncs) in
   let sync_equalities = List.map snd syncs in
   let sync_vars = sync_assigns @ sync_equalities in
-  let is_sync_equality removed =
-    List.length removed = 1 && List.mem (List.hd removed) sync_equalities
+  let is_sync_equality x =
+    List.length x = 1 && List.mem (List.hd x) sync_equalities
   in
+  let eq_to_assign = List.combine sync_equalities (List.map fst syncs) in
   let rec hoist = function
     | ConstraintNot subformula -> hoist subformula
     | ConstraintAnd conjuncts -> ConstraintAnd (List.map hoist conjuncts)
@@ -268,12 +271,14 @@ let hoist_sync_vars formula (syncs:(identifier list * identifier) list) =
       let removed, vs' = List.partition (fun v -> List.mem v sync_vars) vs in
       let subterm' = hoist subterm in
       if is_sync_equality removed then
-        conjunct [subterm'; ConstraintClockOrdered ("dummy", "sync")]
+        let end_sync = List.hd removed in
+        let start_syncs = List.assoc end_sync eq_to_assign in
+        conjunct [subterm'; ConstraintSync (start_syncs, end_sync)]
       else
         ConstraintExists (vs', subterm')
     | _ as formula -> formula
   in
-  ConstraintExists (sync_vars, hoist formula)
+  ConstraintExists (List.sort compare (nodups sync_vars), hoist formula)
 
 (* TODO: better to rewrite assertion without assuming structure of formula *)
 let constraint_of_assert dog assertion =
@@ -295,7 +300,14 @@ let constraint_of_assert dog assertion =
     Printf.printf "sync_assigns = [%s]\n" (print_sync sync_assigns);
     Printf.printf "sync_eqs     = [%s]\n" (print_sync sync_eqs);
   in
-  hoist_sync_vars formula [(["e0"], "f0")]
+  let syncs = List.map (fun (end_sync_var, (sync_var, num)) ->
+    let matches = List.find_all (fun (start_sync_var, (sync_var', num')) -> sync_var = sync_var' && num = num') sync_assigns in
+    let start_sync_vars = List.map (fun (start_sync_var, (_, _)) -> start_sync_var) matches in
+    let _ = assert (List.length start_sync_vars > 0) in
+    (start_sync_vars, end_sync_var)
+  ) sync_eqs
+  in
+  hoist_sync_vars formula syncs
 
 let constraint_of_dog dog =
   let dog' = expand_letdefs dog in
