@@ -143,36 +143,44 @@ let generate_rwpath_syncs edgepath event_var_pairs =
   in
   path_sync_assigns, path_sync_eqs
 
+type dog_constraint_t = {
+  formula: dog_constraint;
+  sync_assigns: (identifier * (identifier * number)) list;
+  sync_eqs: (identifier * (identifier * number)) list;
+}
+
 let starexpr_of_edgepath edgepath =
   let event_var_pairs = generate_rwpath_vars edgepath in
-  let _ = generate_rwpath_syncs edgepath event_var_pairs in
+  let sync_assigns, sync_eqs = generate_rwpath_syncs edgepath event_var_pairs in
   let event_to_var = remove_some (List.filter (fun x -> x <> None) event_var_pairs) in
   let events', vars  = List.split event_to_var in
   let match_constraints = List.map (fun (ev, x) -> ConstraintMatch (x, [rmstar ev])) event_to_var in
   let clock_constraints = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (all_adjacent_pairs vars)) in
-  if List.exists is_lonestar events' then
-    let lonestar, lonestar_var = (List.find (fun (ev, _) -> is_lonestar ev) event_to_var) in
-    let star_ordered_events = List.filter (fun e -> e <> lonestar) events' in
-    let star_constraints = List.map (star_constraint_of event_to_var lonestar) star_ordered_events in
-    ConstraintExists (vars, conjunct (match_constraints @ clock_constraints @ star_constraints))
-  else
-    ConstraintExists (vars, conjunct (match_constraints @ clock_constraints))
+  let formula = if List.exists is_lonestar events' then
+      let lonestar, lonestar_var = (List.find (fun (ev, _) -> is_lonestar ev) event_to_var) in
+      let star_ordered_events = List.filter (fun e -> e <> lonestar) events' in
+      let star_constraints = List.map (star_constraint_of event_to_var lonestar) star_ordered_events in
+      ConstraintExists (vars, conjunct (match_constraints @ clock_constraints @ star_constraints))
+    else
+      ConstraintExists (vars, conjunct (match_constraints @ clock_constraints))
+  in {formula; sync_assigns; sync_eqs}
 
 let starexpr_of_path rules accepting path =
   let edgepath = edges_of_path rules path in
-  let edgeexpr = starexpr_of_edgepath edgepath in
+  let dog_constraint = starexpr_of_edgepath edgepath in
   let final = List.hd (List.rev path) in
   let adj = G.succ rules final in
   match adj with
-  | [] -> edgeexpr
+  | [] -> dog_constraint
   | _ ->
     let adj' = List.filter (fun s -> not (List.mem s accepting)) adj in
     let nots = List.map (fun s ->
       let path' = path @ [s] in
-      let expr = starexpr_of_edgepath (edges_of_path rules path') in
-      ConstraintNot expr
+      (* todo: gather these syncs too *)
+      let escape_constraint = starexpr_of_edgepath (edges_of_path rules path') in
+      ConstraintNot (escape_constraint.formula)
     ) adj' in
-    conjunct (edgeexpr :: nots)
+    {dog_constraint with formula = conjunct (dog_constraint.formula :: nots)}
 
 let vacuous_constraint dog path vars vacuous_state =
   let varpairs = (all_adjacent_pairs ([None] @ (List.map (fun x -> Some x) vars) @ [None])) in
@@ -240,7 +248,8 @@ let constraint_of_end_state dog end_state =
   else (* init in rw_inits *)
     let paths_no_preload = List.filter (fun p -> not (has_preload rules p)) paths in
     let accepting = accepting_states_of dog in
-    let terms = List.map (starexpr_of_path rules accepting) paths_no_preload in
+    let dog_constraints = List.map (starexpr_of_path rules accepting) paths_no_preload in
+    let terms = List.map (fun x -> x.formula) dog_constraints in
     disjunct terms
 
 let hoist_sync_vars formula (syncs:(identifier list * identifier) list) =
