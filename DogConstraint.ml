@@ -207,29 +207,34 @@ let vacuous_constraint dog path vars vacuous_state =
   let constraints = List.map constraint_of preds_in_path in
   conjunct constraints
 
-let progexpr_of_path dog vacuous path =
-  let edgepath = edges_of_path dog.rules path in
-  let events = List.map events_of_eventexpr edgepath in
-  let fresh_event_vars = List.map (fun _ -> efresh_name ()) events in
+let generate_lspath_syncs edgepath vars =
   let sync_assigns = List.map sync_assigns_of_eventexpr edgepath in
   let sync_eqs = List.map sync_equalities_of_eventexpr edgepath in
-  let path_sync_assigns = make_sync_map fresh_event_vars sync_assigns in
-  let path_sync_eqs = make_sync_map fresh_event_vars sync_eqs in
+  let path_sync_assigns = make_sync_map vars sync_assigns in
+  let path_sync_eqs = make_sync_map vars sync_eqs in
   let _ =
     Printf.printf "path_sync_assigns = [%s]\n" (print_sync path_sync_assigns);
     Printf.printf "path_sync_eqs     = [%s]\n" (print_sync path_sync_eqs);
   in
-  let matches = List.map2 (fun x evs -> if is_complete_singleton evs then ConstraintTrue else ConstraintMatch (x, evs)) fresh_event_vars events in
-  let terms = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (all_adjacent_pairs fresh_event_vars)) in
+  path_sync_assigns, path_sync_eqs
+
+let progexpr_of_path dog vacuous path =
+  let edgepath = edges_of_path dog.rules path in
+  let events = List.map events_of_eventexpr edgepath in
+  let vars = List.map (fun _ -> efresh_name ()) events in
+  let sync_assigns, sync_eqs = generate_lspath_syncs edgepath vars in
+  let matches = List.map2 (fun x evs -> if is_complete_singleton evs then ConstraintTrue else ConstraintMatch (x, evs)) vars events in
+  let terms = (List.map (fun (x,y) -> ConstraintClockOrdered (x,y)) (all_adjacent_pairs vars)) in
   let path_has_complete_event = List.exists is_complete_singleton events in
   let positive_body = conjunct terms in
-  let negative_body = conjunct (List.map (vacuous_constraint dog path fresh_event_vars) vacuous) in
-  if path_has_complete_event then
-    let complete_var = fst (List.find (fun (x, evs) -> is_complete_singleton evs) (List.combine fresh_event_vars events)) in
-    let starts = take_while (fun v -> v <> complete_var) fresh_event_vars in
-    ConstraintExists (fresh_event_vars, conjunct (matches @ [positive_body; ConstraintComplete (complete_var, starts); negative_body]))
-  else
-    ConstraintExists (fresh_event_vars, conjunct (matches @ [positive_body; negative_body]))
+  let negative_body = conjunct (List.map (vacuous_constraint dog path vars) vacuous) in
+  let formula = if path_has_complete_event then
+      let complete_var = fst (List.find (fun (x, evs) -> is_complete_singleton evs) (List.combine vars events)) in
+      let starts = take_while (fun v -> v <> complete_var) vars in
+      ConstraintExists (vars, conjunct (matches @ [positive_body; ConstraintComplete (complete_var, starts); negative_body]))
+    else
+      ConstraintExists (vars, conjunct (matches @ [positive_body; negative_body]))
+  in {formula; sync_assigns; sync_eqs}
 
 let constraint_of_end_state dog end_state =
   let rules = dog.rules in
@@ -243,7 +248,8 @@ let constraint_of_end_state dog end_state =
   let paths = extract_paths rules init [end_state] in
   if (List.mem init dog.ls_inits) then
     let vacuous = vacuous_states_of dog in
-    let terms = List.map (progexpr_of_path dog vacuous) paths in
+    let dog_constraints = List.map (progexpr_of_path dog vacuous) paths in
+    let terms = List.map (fun x -> x.formula) dog_constraints in
     disjunct terms
   else (* init in rw_inits *)
     let paths_no_preload = List.filter (fun p -> not (has_preload rules p)) paths in
