@@ -180,14 +180,27 @@ let check_at_most_one_sync_assign_per_edge dog =
   let _ = G.iter_edges_e check_edge dog.rules in
   !ok
 
-let check_every_sync_eq_has_at_least_one_sync_assign dog =
-  let rec collect eventexpr acc =
+let collect_sync_eqs eventexpr =
+  let rec aux eventexpr acc =
     match eventexpr with
     | ExprBool (BoolEq, ExprIdentifier x, ExprNum n) -> (x,n) :: acc
     | ExprAssign (_, _) | ExprIdentifier _ | ExprNum _ | ExprEvent _ -> acc
-    | ExprNot e -> collect e acc
-    | ExprBool (_,e1,e2) -> collect e1 (collect e2 acc)
+    | ExprNot e -> aux e acc
+    | ExprBool (_,e1,e2) -> aux e1 (aux e2 acc)
   in
+  aux eventexpr []
+
+let check_at_most_one_sync_eq_per_edge dog =
+  let ok = ref true in
+  let check_edge (_,eventexpr,_) =
+    let sync_eqs = collect_sync_eqs eventexpr in
+    if List.length sync_eqs <= 1 then ()
+    else (Printf.printf "Error: More than one sync eq in edge [%s]\n" (string_of_eventexpr eventexpr); ok := false)
+  in
+  let _ = G.iter_edges_e check_edge dog.rules in
+  !ok
+
+let check_every_sync_eq_has_at_least_one_sync_assign dog =
   let ok = ref true in
   let rules = dog.rules in
   let sync_assigns = G.fold_edges_e (fun (_,e,_) acc -> (collect_sync_assigns e) @ acc) rules [] in
@@ -196,7 +209,7 @@ let check_every_sync_eq_has_at_least_one_sync_assign dog =
     else (Printf.printf "Error: sync equality (%s = %d) has no matching assignment\n" x n; ok := false)
   in
   let check_edge (_,eventexpr,_) =
-    let eqs = collect eventexpr [] in
+    let eqs = collect_sync_eqs eventexpr in
     List.iter check_eq eqs
   in
   let _ = G.iter_edges_e check_edge rules in
@@ -213,6 +226,7 @@ let checks = [(check_initial_states, "Initial state statement are not well-defin
               (check_no_conjuncted_events, "Edge with conjunction of events\n");
               (check_exactly_one_initial_state, "State in assert reachable from multiple initial states\n");
               (check_at_most_one_sync_assign_per_edge, "Multiple sync assignments in edge\n");
+              (check_at_most_one_sync_eq_per_edge, "Multiple sync equalities in edge\n");
               (check_every_sync_eq_has_at_least_one_sync_assign, "Unmatched sync equality in edge\n");
              ]
 
