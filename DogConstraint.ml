@@ -74,15 +74,6 @@ let is_lonestar = function
 let is_complete_singleton evs =
   List.length evs = 1 && ((List.nth evs 0) = EventComplete)
 
-(* TODO: find data oracle in actuals list *)
-let has_preload rules path =
-  let events = events_of_path (edges_of_path rules path) in
-  let reads = List.filter (function Event(e,_,_,_) -> e = "RD" | _ -> false) events in
-  let data = List.map (function
-    | Event(_, alist, _, _) -> List.nth alist 1 (* assumes this element is the data oracle *)
-    | _ -> assert false (* unreachable *)) reads in
-  (List.length data) <> (List.length (nodups data))
-
 let make_sync_map event_vars syncs =
   let pairs = List.combine event_vars syncs in
   let filtered = List.filter (fun (_, sync) -> sync <> None) pairs in
@@ -91,6 +82,17 @@ let make_sync_map event_vars syncs =
     | Some x -> x
   in
   List.map (fun (event_var, sync) -> event_var, remove_some sync) filtered
+
+(* RW constraint generation *)
+
+(* TODO: find data oracle in actuals list *)
+let has_preload rules path =
+  let events = events_of_path (edges_of_path rules path) in
+  let reads = List.filter (function Event(e,_,_,_) -> e = "RD" | _ -> false) events in
+  let data = List.map (function
+    | Event(_, alist, _, _) -> List.nth alist 1 (* assumes this element is the data oracle *)
+    | _ -> assert false (* unreachable *)) reads in
+  (List.length data) <> (List.length (nodups data))
 
 let star_constraint_of event_to_var lonestar event =
   let lonestar_var = List.assoc lonestar event_to_var in
@@ -139,10 +141,6 @@ let generate_rwpath_syncs edgepath event_var_pairs =
   let sync_eqs = List.map sync_equalities_of_eventexpr edgepath in
   let path_sync_assigns = make_sync_map sync_vars sync_assigns in
   let path_sync_eqs = make_sync_map sync_vars sync_eqs in
-  let _ =
-    Printf.printf "path_sync_assigns = [%s]\n" (print_sync path_sync_assigns);
-    Printf.printf "path_sync_eqs     = [%s]\n" (print_sync path_sync_eqs);
-  in
   path_sync_assigns, path_sync_eqs
 
 let rmstar = function
@@ -182,6 +180,8 @@ let starexpr_of_path rules accepting path =
     ) adj' in
     {dog_constraint with formula = conjunct (dog_constraint.formula :: nots)}
 
+(* LS constraint generation *)
+
 let vacuous_constraint dog path vars vacuous_state =
   let varpairs = (all_adjacent_pairs ([None] @ (List.map (fun x -> Some x) vars) @ [None])) in
   let state_to_vars = List.map2 (fun s from_to -> (s, from_to)) path varpairs in
@@ -212,10 +212,6 @@ let generate_lspath_syncs edgepath vars =
   let sync_eqs = List.map sync_equalities_of_eventexpr edgepath in
   let path_sync_assigns = make_sync_map vars sync_assigns in
   let path_sync_eqs = make_sync_map vars sync_eqs in
-  let _ =
-    Printf.printf "path_sync_assigns = [%s]\n" (print_sync path_sync_assigns);
-    Printf.printf "path_sync_eqs     = [%s]\n" (print_sync path_sync_eqs);
-  in
   path_sync_assigns, path_sync_eqs
 
 let progexpr_of_path dog vacuous path =
@@ -246,17 +242,18 @@ let constraint_of_end_state dog end_state =
   in
   let init = List.hd inits in
   let paths = extract_paths rules init [end_state] in
-  if (List.mem init dog.ls_inits) then
-    let vacuous = vacuous_states_of dog in
-    let dog_constraints = List.map (progexpr_of_path dog vacuous) paths in
-    let terms = List.map (fun x -> x.formula) dog_constraints in
-    disjunct terms
-  else (* init in rw_inits *)
-    let paths_no_preload = List.filter (fun p -> not (has_preload rules p)) paths in
-    let accepting = accepting_states_of dog in
-    let dog_constraints = List.map (starexpr_of_path rules accepting) paths_no_preload in
-    let terms = List.map (fun x -> x.formula) dog_constraints in
-    disjunct terms
+  let dog_constraints = if (List.mem init dog.ls_inits) then
+      let vacuous = vacuous_states_of dog in
+      List.map (progexpr_of_path dog vacuous) paths
+    else (* init in rw_inits *)
+      let paths_no_preload = List.filter (fun p -> not (has_preload rules p)) paths in
+      let accepting = accepting_states_of dog in
+      List.map (starexpr_of_path rules accepting) paths_no_preload
+  in
+  let terms = List.map (fun x -> x.formula) dog_constraints in
+  let sync_assigns = List.concat (List.map (fun x -> x.sync_assigns) dog_constraints) in
+  let sync_eqs = List.concat (List.map (fun x -> x.sync_eqs) dog_constraints) in
+  {formula=disjunct terms; sync_assigns=sync_assigns; sync_eqs=sync_eqs}
 
 let hoist_sync_vars formula (syncs:(identifier list * identifier) list) =
   let sync_assigns = List.flatten (List.map fst syncs) in
@@ -284,9 +281,23 @@ let hoist_sync_vars formula (syncs:(identifier list * identifier) list) =
 (* TODO: better to rewrite assertion without assuming structure of formula *)
 let constraint_of_assert dog assertion =
   let lhs, rhs = assertion in
-  let lhs_terms = List.map (constraint_of_end_state dog) lhs in
-  let rhs_terms = List.map (constraint_of_end_state dog) rhs in
-  let formula = ConstraintImplies (disjunct lhs_terms, disjunct rhs_terms) in
+  let lhs_constraints = List.map (constraint_of_end_state dog) lhs in
+  let rhs_constraints = List.map (constraint_of_end_state dog) rhs in
+  let lhs_formula = disjunct (List.map (fun x -> x.formula) lhs_constraints) in
+  let rhs_formula = disjunct (List.map (fun x -> x.formula) rhs_constraints) in
+  let formula = ConstraintImplies (lhs_formula, rhs_formula) in
+  let sync_assigns =
+    (List.concat (List.map (fun x -> x.sync_assigns) lhs_constraints)) @
+    (List.concat (List.map (fun x -> x.sync_assigns) rhs_constraints))
+  in
+  let sync_eqs =
+    (List.concat (List.map (fun x -> x.sync_eqs) lhs_constraints)) @
+    (List.concat (List.map (fun x -> x.sync_eqs) rhs_constraints))
+  in
+  let _ =
+    Printf.printf "sync_assigns = [%s]\n" (print_sync sync_assigns);
+    Printf.printf "sync_eqs     = [%s]\n" (print_sync sync_eqs);
+  in
   hoist_sync_vars formula [(["e0"], "f0")]
 
 let constraint_of_dog dog =
