@@ -58,9 +58,39 @@ let rec string_of_constraint = function
 | ConstraintImplies (lhs, rhs) -> Format.sprintf "@[%s @,=>@, %s@]" (string_of_constraint lhs) (string_of_constraint rhs)
 | ConstraintExists (vs, subterm) -> Format.sprintf "@[(exists %s in Events @,::@, %s)@]" (String.concat ", " vs) (string_of_constraint subterm)
 
-let rmstar = function
-| Event (e,alist,se,_) -> Event (e,alist,se,StarNone)
-| _ as e -> e
+type dog_constraint_t = {
+  formula: dog_constraint;
+  sync_assigns: (identifier * (identifier * number)) list;
+  sync_eqs: (identifier * (identifier * number)) list;
+}
+
+let is_data_oracle = function
+| Oracle id | OracleExists id | OracleTrue id -> id.[0] = 'D'
+
+let is_lonestar = function
+| Event (_,_,_,Star) -> true
+| _ -> false
+
+let is_complete_singleton evs =
+  List.length evs = 1 && ((List.nth evs 0) = EventComplete)
+
+(* TODO: find data oracle in actuals list *)
+let has_preload rules path =
+  let events = events_of_path (edges_of_path rules path) in
+  let reads = List.filter (function Event(e,_,_,_) -> e = "RD" | _ -> false) events in
+  let data = List.map (function
+    | Event(_, alist, _, _) -> List.nth alist 1 (* assumes this element is the data oracle *)
+    | _ -> assert false (* unreachable *)) reads in
+  (List.length data) <> (List.length (nodups data))
+
+let make_sync_map event_vars syncs =
+  let pairs = List.combine event_vars syncs in
+  let filtered = List.filter (fun (_, sync) -> sync <> None) pairs in
+  let remove_some = function
+    | None -> assert false (* unreachable *)
+    | Some x -> x
+  in
+  List.map (fun (event_var, sync) -> event_var, remove_some sync) filtered
 
 let star_constraint_of event_to_var lonestar event =
   let lonestar_var = List.assoc lonestar event_to_var in
@@ -76,36 +106,6 @@ let star_constraint_of event_to_var lonestar event =
   end
   | _ -> assert false (* unreachable *)
 
-let is_data_oracle = function
-| Oracle id | OracleExists id | OracleTrue id -> id.[0] = 'D'
-
-(* TODO: find data oracle in actuals list *)
-let has_preload rules path =
-  let events = events_of_path (edges_of_path rules path) in
-  let reads = List.filter (function Event(e,_,_,_) -> e = "RD" | _ -> false) events in
-  let data = List.map (function
-    | Event(_, alist, _, _) -> List.nth alist 1 (* assumes this element is the data oracle *)
-    | _ -> assert false (* unreachable *)) reads in
-  (List.length data) <> (List.length (nodups data))
-
-let is_lonestar = function
-| Event (_,_,_,Star) -> true
-| _ -> false
-
-let is_complete_singleton evs =
-  List.length evs = 1 && ((List.nth evs 0) = EventComplete)
-
-let make_sync_map event_vars syncs =
-  let pairs = List.combine event_vars syncs in
-  let filtered = List.filter (fun (_, sync) -> sync <> None) pairs in
-  let remove_some = function
-    | None -> assert false (* unreachable *)
-    | Some x -> x
-  in
-  List.map (fun (event_var, sync) -> event_var, remove_some sync) filtered
-
-exception No_next_event
-
 let generate_rwpath_vars edgepath =
   let gather acc eventexpr =
     let events = events_of_eventexpr eventexpr in
@@ -117,6 +117,8 @@ let generate_rwpath_vars edgepath =
     | _ -> assert false (* wf condition *)
   in
   List.rev (List.fold_left gather [] edgepath)
+
+exception No_next_event
 
 let generate_rwpath_syncs edgepath event_var_pairs =
   let var_of = function
@@ -143,11 +145,9 @@ let generate_rwpath_syncs edgepath event_var_pairs =
   in
   path_sync_assigns, path_sync_eqs
 
-type dog_constraint_t = {
-  formula: dog_constraint;
-  sync_assigns: (identifier * (identifier * number)) list;
-  sync_eqs: (identifier * (identifier * number)) list;
-}
+let rmstar = function
+| Event (e,alist,se,_) -> Event (e,alist,se,StarNone)
+| _ as e -> e
 
 let starexpr_of_edgepath edgepath =
   let event_var_pairs = generate_rwpath_vars edgepath in
