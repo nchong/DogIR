@@ -88,15 +88,18 @@ let is_num = function
 | ExprNum _ -> true
 | _ -> false
 
-let sync_assigns_of_eventexpr eventexpr =
+let sync_assign_of_eventexpr eventexpr =
   let rec aux ev acc =
     match ev with
     | ExprAssign (ExprIdentifier x, ExprNum n) -> (x,n)::acc
-    | ExprAssign (_, _) -> acc | ExprIdentifier _ | ExprNum _ | ExprNot _ | ExprEvent _ -> acc
+    | ExprAssign (_, _) | ExprIdentifier _ | ExprNum _ | ExprNot _ | ExprEvent _ -> acc
     | ExprBool (_,e1,e2) -> aux e1 (aux e2 acc)
   in
   let sync_assigns = aux eventexpr [] in
-  if sync_assigns = [] then None else Some (List.hd sync_assigns)
+  match List.length sync_assigns with
+  | 0 -> None
+  | 1 -> Some (List.hd sync_assigns)
+  | _ -> assert false (* wf condition *)
 
 let sync_equalities_of_eventexpr = function
   | ExprBool (b,e1,e2) ->

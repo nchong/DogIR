@@ -129,7 +129,7 @@ let generate_rwpath_syncs edgepath event_var_pairs =
       with Not_found -> raise No_next_event)
     | _ -> var_of opt
   ) event_var_pairs in
-  let sync_assigns = List.map sync_assigns_of_eventexpr edgepath in
+  let sync_assigns = List.map sync_assign_of_eventexpr edgepath in
   let sync_eqs = List.map sync_equalities_of_eventexpr edgepath in
   let path_sync_assigns = make_sync_map sync_vars sync_assigns in
   let path_sync_eqs = make_sync_map sync_vars sync_eqs in
@@ -168,13 +168,21 @@ let starexpr_of_path rules accepting path =
   | [] -> dog_constraint
   | _ ->
     let adj' = List.filter (fun s -> not (List.mem s accepting)) adj in
-    let nots = List.map (fun s ->
+    (* TODO: gather these syncs too *)
+    let not_constraints = List.map (fun s ->
       let path' = path @ [s] in
-      (* todo: gather these syncs too *)
       let escape_constraint = starexpr_of_edgepath (edges_of_path rules path') in
-      ConstraintNot (escape_constraint.formula)
+      {escape_constraint with formula = ConstraintNot (escape_constraint.formula)}
     ) adj' in
-    {dog_constraint with formula = conjunct (dog_constraint.formula :: nots)}
+    let nots = List.map (fun x -> x.formula) not_constraints in
+    let formula = conjunct (dog_constraint.formula :: nots) in
+    let sync_assigns = dog_constraint.sync_assigns @ 
+      (List.concat (List.map (fun x -> x.sync_assigns) not_constraints))
+    in
+    let sync_eqs = dog_constraint.sync_eqs @ 
+      (List.concat (List.map (fun x -> x.sync_eqs) not_constraints))
+    in
+    {formula; sync_assigns; sync_eqs}
 
 (* LS constraint generation *)
 
@@ -204,7 +212,7 @@ let vacuous_constraint dog path vars vacuous_state =
   conjunct constraints
 
 let generate_lspath_syncs edgepath vars =
-  let sync_assigns = List.map sync_assigns_of_eventexpr edgepath in
+  let sync_assigns = List.map sync_assign_of_eventexpr edgepath in
   let sync_eqs = List.map sync_equalities_of_eventexpr edgepath in
   let path_sync_assigns = make_sync_map vars sync_assigns in
   let path_sync_eqs = make_sync_map vars sync_eqs in

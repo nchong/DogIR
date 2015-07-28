@@ -1,0 +1,3 @@
+(* Failing test *)
+
+L1 -> L2: LD(A0,D0)@s && start := 1 && begin := 1; (* multiple sync assigns *)
