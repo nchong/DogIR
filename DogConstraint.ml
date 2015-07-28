@@ -263,7 +263,7 @@ let hoist_sync_vars formula (syncs:(identifier list * identifier) list) =
   in
   let eq_to_assign = List.combine sync_equalities (List.map fst syncs) in
   let rec hoist = function
-    | ConstraintNot subformula -> hoist subformula
+    | ConstraintNot subformula -> ConstraintNot (hoist subformula)
     | ConstraintAnd conjuncts -> ConstraintAnd (List.map hoist conjuncts)
     | ConstraintOr disjuncts -> ConstraintOr (List.map hoist disjuncts)
     | ConstraintImplies (lhs, rhs) -> ConstraintImplies (hoist lhs, hoist rhs)
