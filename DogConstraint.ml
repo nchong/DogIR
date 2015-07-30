@@ -24,7 +24,7 @@ type dog_constraint =
 | ConstraintAnd of dog_constraint list
 | ConstraintOr of dog_constraint list
 | ConstraintImplies of dog_constraint * dog_constraint
-| ConstraintSync of identifier list * identifier
+| ConstraintSync of identifier * identifier
 | ConstraintExists of (identifier list) * dog_constraint (* \exists e0 e1 ... \in Ev :: ... *)
 
 let flatten termof xs =
@@ -62,7 +62,7 @@ let rec string_of_constraint = function
 | ConstraintAnd conjuncts -> Format.sprintf "@[%s@]" (String.concat " /\\ " (List.map string_of_constraint conjuncts))
 | ConstraintOr disjuncts -> Format.sprintf "@[%s@]" (String.concat " \\/ " (List.map string_of_constraint disjuncts))
 | ConstraintImplies (lhs, rhs) -> Format.sprintf "@[%s @,=>@, %s@]" (string_of_constraint lhs) (string_of_constraint rhs)
-| ConstraintSync (vs, w) -> Format.sprintf "@[sync([%s], %s)@]" (String.concat ", " vs) w
+| ConstraintSync (v, w) -> Format.sprintf "@[CT<=(%s, %s)@]" v w
 | ConstraintExists (vs, subterm) ->
   match vs with
   | [] -> Format.sprintf "@[(%s)@]" (string_of_constraint subterm)
@@ -290,7 +290,7 @@ let hoist_sync_vars formula (syncs:(identifier list * identifier) list) =
       let eqs, vs' = List.partition (fun v -> List.mem v sync_equalities) vs in
       let subterm' = hoist subterm in
       let assign_terms = List.map (fun v -> ConstraintEq (v, List.assoc v sync_var_map)) assigns in
-      let eq_terms = List.map (fun v -> ConstraintSync ([List.assoc v sync_var_map], v)) eqs in
+      let eq_terms = List.map (fun v -> ConstraintSync (List.assoc v sync_var_map, v)) eqs in
       let formula = simplify (conjunct (subterm' :: (assign_terms @ eq_terms))) in
       ConstraintExists (vs', formula)
     | _ as formula -> formula
