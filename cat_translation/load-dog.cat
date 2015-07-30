@@ -1,0 +1,25 @@
+"Dogs"
+
+let no-intervening(r,S) =
+    r & ~(r & (_*S);r)
+
+procedure dog(LSd,RWd) =
+    ~empty(LSd;RWd)
+end
+
+(* Load *)
+let Load-LS-dom(CT,X) =
+    let R01 = no-intervening(CT & (BE * LD_S),X) in
+    (*X should be "x0 matches {ST(A0,D0)@s,LD(A0,!D0)@s}"*)
+    let R12 = CT & loc & (LD_S * LD_E) in
+    R01;R12
+
+let Load-RW-dom(CT) = 
+    CT & (BE * RD_S)
+
+procedure load-dog() =
+    call dog(Load-LS-dom,Load-RW-dom)
+end
+(********************************************************************)
+
+(* Load-Load *)

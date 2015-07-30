@@ -1,0 +1,20 @@
+"Load Load Dog"
+
+enum SE = 's || 'e
+enum dom = 'LS || 'RW
+enum Fence = 'DSB || 'Reset
+
+instructions W[SE,dom]
+instructions R[SE,dom]
+instructions F[Fence,SE,'LS] (*check if F are always in LS or can be in RW*)
+
+let ST_S = W & tag2instrs('s) & tag2instrs('LS)
+let LD_S = R & tag2instrs('s) & tag2instrs('LS)
+let LD_E = R & tag2instrs('e) & tag2instrs('LS)
+let RD_S = R & tag2instrs('s) & tag2instrs('RW)
+let DSB_S = tag2instrs('DSB) & tag2instrs('s) & tag2instrs('LS)
+let BE = tag2instrs('Reset) |  DSB_S | ST_S
+
+
+
+

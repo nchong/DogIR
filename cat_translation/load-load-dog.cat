@@ -1,0 +1,23 @@
+"Load-Load Dog"
+
+let no-intervening(r,S) =
+    r & ~(r & (_*S);r)
+
+procedure dog(LSd,RWd) =
+    ~empty(LSd;RWd)
+end
+
+let LoadLoad-LS-dom(CT,X0,X1,same-instr) =
+    let R01 = no-intervening(CT & (BE * LD_S),X0) in
+    let R12 = no-intervening(CT & (LD_S * LD_S) & loc & ~id,X1) in
+    let R23 = CT & (LD_S * LD_E) & loc & same-instr in
+    R01;R12;R23
+
+let LoadLoad-RW-dom(CT,SO) =
+    let Rf01 = CT & SO & (RD_S * RD_S) & ~id
+    CT;Rf01
+
+procedure load-load-dog() =
+    call dog(LoadLoad-LS-dom,LoadLoad-RW-dom)
+end
+
