@@ -273,16 +273,26 @@ let constraint_of_end_state dog end_state =
   let sync_eqs = List.concat (List.map (fun x -> x.sync_eqs) dog_constraints) in
   {formula=disjunct terms; sync_assigns=sync_assigns; sync_eqs=sync_eqs}
 
-let hoist_sync_vars formula (syncs:(identifier list * identifier) list) =
-  let sync_assigns = nodups (List.flatten (List.map fst syncs)) in
-  let sync_var_map' = List.map (fun x -> (x, sfresh_name ())) sync_assigns in
-  let sync_var_map = sync_var_map' @ 
-    List.map (fun (xs, y) ->
-      let x = List.hd xs in
-      let fresh = List.assoc x sync_var_map' in
-      (y, fresh)) syncs
+type sync_t = {
+  assigns: identifier list;
+  eq: identifier;
+  sync_var: string;
+}
+
+let hoist_sync_vars formula (syncs:sync_t list) =
+  let sync_assigns = nodups (List.flatten (List.map (fun x -> x.assigns) syncs)) in
+  let sync_equalities = List.map (fun x -> x.eq) syncs in
+  let sync_vars = nodups (List.map (fun x -> x.sync_var) syncs) in
+  let sync_var_to_fresh = List.map (fun x -> (x, sfresh_name ())) sync_vars in
+  let sync_var_map =
+    List.flatten (
+      List.map
+      (fun x ->
+       let fresh = List.assoc x.sync_var sync_var_to_fresh in
+       (x.eq, fresh) :: List.map (fun y -> (y, fresh)) x.assigns)
+      syncs
+    )
   in
-  let sync_equalities = List.map snd syncs in
   let rec hoist = function
     | ConstraintNot subformula -> ConstraintNot (hoist subformula)
     | ConstraintAnd conjuncts -> ConstraintAnd (List.map hoist conjuncts)
@@ -324,7 +334,7 @@ let constraint_of_assert dog assertion =
     let matches = List.find_all (fun (start_sync_var, (sync_var', num')) -> sync_var = sync_var' && num = num') sync_assigns in
     let start_sync_vars = List.map (fun (start_sync_var, (_, _)) -> start_sync_var) matches in
     let _ = assert (List.length start_sync_vars > 0) in
-    (start_sync_vars, end_sync_var)
+    {assigns=start_sync_vars; eq=end_sync_var; sync_var=sync_var}
   ) sync_eqs
   in
   hoist_sync_vars formula syncs
