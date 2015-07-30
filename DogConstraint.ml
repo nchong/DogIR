@@ -284,6 +284,7 @@ let hoist_sync_vars formula (syncs:sync_t list) =
   let sync_equalities = List.map (fun x -> x.eq) syncs in
   let sync_vars = nodups (List.map (fun x -> x.sync_var) syncs) in
   let sync_var_to_fresh = List.map (fun x -> (x, sfresh_name ())) sync_vars in
+  (* associate every sync assign or eq to a fresh var using sync_var as a key *)
   let sync_var_map =
     List.flatten (
       List.map
