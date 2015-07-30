@@ -274,11 +274,14 @@ let constraint_of_end_state dog end_state =
   {formula=disjunct terms; sync_assigns=sync_assigns; sync_eqs=sync_eqs}
 
 let hoist_sync_vars formula (syncs:(identifier list * identifier) list) =
-  let sync_var_map = List.flatten (List.map (fun (xs, y) ->
-    let s = sfresh_name () in
-    (y,s) :: (List.map (fun x -> (x,s)) xs)) syncs)
+  let sync_assigns = nodups (List.flatten (List.map fst syncs)) in
+  let sync_var_map' = List.map (fun x -> (x, sfresh_name ())) sync_assigns in
+  let sync_var_map = sync_var_map' @ 
+    List.map (fun (xs, y) ->
+      let x = List.hd xs in
+      let fresh = List.assoc x sync_var_map' in
+      (y, fresh)) syncs
   in
-  let sync_assigns = List.flatten (List.map fst syncs) in
   let sync_equalities = List.map snd syncs in
   let rec hoist = function
     | ConstraintNot subformula -> ConstraintNot (hoist subformula)
