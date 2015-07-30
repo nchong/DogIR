@@ -8,10 +8,13 @@ let efresh_name = gen_counter "e"
 let ffresh_name = gen_counter "f"
 (* Fresh variable generator for ranging over vacuous escape events *)
 let xfresh_name = gen_counter "x"
+(* Fresh variable generator for ranging over sync events *)
+let sfresh_name = gen_counter "sync"
 
 type dog_constraint =
 | ConstraintFalse
 | ConstraintTrue
+| ConstraintEq of identifier * identifier
 | ConstraintMatch of identifier * event list
 | ConstraintComplete of identifier * identifier list
 | ConstraintStarOrdered of identifier * identifier        (* (e1,e2) \in so *)
@@ -41,10 +44,15 @@ let disjunct constraints =
   | [] -> ConstraintTrue
   | _ -> ConstraintOr (flatten (function | ConstraintOr cs -> cs | _ as c -> [c]) constraints)
 
+let simplify = function
+  | ConstraintAnd conjuncts -> ConstraintAnd (List.filter (fun t -> t <> ConstraintTrue) conjuncts)
+  | _ as f -> f
+
 (* v,w range over identifiers *)
 let rec string_of_constraint = function
 | ConstraintFalse -> Format.sprintf "false"
 | ConstraintTrue -> Format.sprintf "true"
+| ConstraintEq (v, w) -> Format.sprintf "@[(%s = %s)@]" v w
 | ConstraintMatch (v, events) -> Format.sprintf "@[(%s matches {%s})@]" v (String.concat ", " (List.map string_of_event events))
 | ConstraintComplete (v, starts) -> Format.sprintf "@[isComplete(%s, {%s})@]" v (String.concat ", " starts)
 | ConstraintStarOrdered (v, w) -> Format.sprintf "@[SO<=(%s,@ %s)@]" v w
@@ -55,7 +63,10 @@ let rec string_of_constraint = function
 | ConstraintOr disjuncts -> Format.sprintf "@[%s@]" (String.concat " \\/ " (List.map string_of_constraint disjuncts))
 | ConstraintImplies (lhs, rhs) -> Format.sprintf "@[%s @,=>@, %s@]" (string_of_constraint lhs) (string_of_constraint rhs)
 | ConstraintSync (vs, w) -> Format.sprintf "@[sync([%s], %s)@]" (String.concat ", " vs) w
-| ConstraintExists (vs, subterm) -> Format.sprintf "@[(exists %s in Events @,::@, %s)@]" (String.concat ", " vs) (string_of_constraint subterm)
+| ConstraintExists (vs, subterm) ->
+  match vs with
+  | [] -> Format.sprintf "@[(%s)@]" (string_of_constraint subterm)
+  | _ -> Format.sprintf "@[(exists %s in Events @,::@, %s)@]" (String.concat ", " vs) (string_of_constraint subterm)
 
 type dog_constraint_t = {
   formula: dog_constraint;
@@ -263,30 +274,28 @@ let constraint_of_end_state dog end_state =
   {formula=disjunct terms; sync_assigns=sync_assigns; sync_eqs=sync_eqs}
 
 let hoist_sync_vars formula (syncs:(identifier list * identifier) list) =
+  let sync_var_map = List.flatten (List.map (fun (xs, y) ->
+    let s = sfresh_name () in
+    (y,s) :: (List.map (fun x -> (x,s)) xs)) syncs)
+  in
   let sync_assigns = List.flatten (List.map fst syncs) in
   let sync_equalities = List.map snd syncs in
-  let sync_vars = sync_assigns @ sync_equalities in
-  let is_sync_equality x =
-    List.length x = 1 && List.mem (List.hd x) sync_equalities
-  in
-  let eq_to_assign = List.combine sync_equalities (List.map fst syncs) in
   let rec hoist = function
     | ConstraintNot subformula -> ConstraintNot (hoist subformula)
     | ConstraintAnd conjuncts -> ConstraintAnd (List.map hoist conjuncts)
     | ConstraintOr disjuncts -> ConstraintOr (List.map hoist disjuncts)
     | ConstraintImplies (lhs, rhs) -> ConstraintImplies (hoist lhs, hoist rhs)
     | ConstraintExists (vs, subterm) ->
-      let removed, vs' = List.partition (fun v -> List.mem v sync_vars) vs in
+      let assigns = List.filter (fun v -> List.mem v sync_assigns) vs in
+      let eqs, vs' = List.partition (fun v -> List.mem v sync_equalities) vs in
       let subterm' = hoist subterm in
-      if is_sync_equality removed then
-        let end_sync = List.hd removed in
-        let start_syncs = List.assoc end_sync eq_to_assign in
-        conjunct [subterm'; ConstraintSync (start_syncs, end_sync)]
-      else
-        ConstraintExists (vs', subterm')
+      let assign_terms = List.map (fun v -> ConstraintEq (v, List.assoc v sync_var_map)) assigns in
+      let eq_terms = List.map (fun v -> ConstraintSync ([List.assoc v sync_var_map], v)) eqs in
+      let formula = simplify (conjunct (subterm' :: (assign_terms @ eq_terms))) in
+      ConstraintExists (vs', formula)
     | _ as formula -> formula
   in
-  ConstraintExists (List.sort compare (nodups sync_vars), hoist formula)
+  ConstraintExists (List.sort compare (nodups (List.map snd sync_var_map @ sync_equalities)), hoist formula)
 
 (* TODO: better to rewrite assertion without assuming structure of formula *)
 let constraint_of_assert dog assertion =
