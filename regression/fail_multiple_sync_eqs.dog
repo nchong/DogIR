@@ -1,0 +1,6 @@
+(* Failing test *)
+
+L1 -> L2: LD(A0,D0)@s && start := 1;
+L2 -> L3: ST(A0,D0)@s && begin := 1;
+
+M1 -> M2: start == 1 && begin == 1; (* multiple sync eqs *)

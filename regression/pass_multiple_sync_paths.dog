@@ -1,0 +1,16 @@
+(* Passing test *)
+
+L1 -> L2: DSB()@s && start := 1;
+L2 -> L3: LD(A0,D0)@s;
+L3 -> L5: LD(A0,D0)@e;
+L2 -> L4: ST(A0,D0)@s;
+L4 -> L5: ST(A0,D0)@e;
+
+M1 -> M2: start == 1;
+M2 -> M3: RD(A0,D0)@s;
+
+ASSERT L5 |-> M3;
+
+(* Initial states *)
+LS_INIT: L1;
+RW_INIT: M1;
