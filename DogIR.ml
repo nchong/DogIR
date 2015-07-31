@@ -42,6 +42,7 @@ type arithop =
 | ArithMinus
 
 type eventexpr =
+| ExprSelector of identifier
 | ExprIdentifier of identifier
 | ExprNum of number
 | ExprNot of eventexpr
@@ -63,6 +64,7 @@ type dog_assert = state list * state list
 let rec substitute (find_id, replace_expr) eventexpr =
   let aux = substitute (find_id, replace_expr) in
   match eventexpr with
+  | ExprSelector _ -> eventexpr
   | ExprIdentifier id -> if id = find_id then replace_expr else eventexpr
   | ExprNum _ -> eventexpr
   | ExprNot e -> ExprNot (aux e)
@@ -73,7 +75,7 @@ let rec substitute (find_id, replace_expr) eventexpr =
 let events_of_eventexpr ev =
   let rec aux ev acc =
     match ev with
-    | ExprIdentifier _ | ExprNum _ -> acc
+    | ExprSelector _ | ExprIdentifier _ | ExprNum _ -> acc
     | ExprNot e -> aux e acc
     | ExprBool (_,e1,e2) | ExprAssign (e1,e2) -> aux e1 (aux e2 acc)
     | ExprEvent e -> e::acc
@@ -92,7 +94,7 @@ let sync_assign_of_eventexpr eventexpr =
   let rec aux ev acc =
     match ev with
     | ExprAssign (ExprIdentifier x, ExprNum n) -> (x,n)::acc
-    | ExprAssign (_, _) | ExprIdentifier _ | ExprNum _ | ExprNot _ | ExprEvent _ -> acc
+    | ExprSelector _ | ExprAssign (_, _) | ExprIdentifier _ | ExprNum _ | ExprNot _ | ExprEvent _ -> acc
     | ExprBool (_,e1,e2) -> aux e1 (aux e2 acc)
   in
   let sync_assigns = aux eventexpr [] in
@@ -167,6 +169,7 @@ let pp_boolop ppf = function
 | BoolEq -> Format.fprintf ppf "BoolEq"
 
 let rec pp_eventexpr ppf = function
+| ExprSelector x -> Format.fprintf ppf "ExprSelector(@[%a@])" pp_string x
 | ExprIdentifier x -> Format.fprintf ppf "ExprIdentifier(@[%a@])" pp_string x
 | ExprNum n -> Format.fprintf ppf "ExprNum(@[%d@])" n
 | ExprNot e -> Format.fprintf ppf "ExprNot(@[%a@])" pp_eventexpr e
@@ -210,6 +213,7 @@ let string_of_event = function
 | Event (e,alist,se,star) -> Format.sprintf "%s(%s)%s%s" e (String.concat ", " (List.map string_of_actual alist)) (string_of_startend se) (string_of_star star)
 
 let rec string_of_eventexpr = function
+| ExprSelector x -> Format.sprintf "%s" x
 | ExprIdentifier x -> Format.sprintf "%s" x
 | ExprNum n -> Format.sprintf "%d" n
 | ExprNot e -> Format.sprintf "!(%s)" (string_of_eventexpr e)

@@ -164,7 +164,7 @@ let collect_sync_assigns eventexpr =
   let rec aux eventexpr acc =
     match eventexpr with
     | ExprAssign (ExprIdentifier x, ExprNum n) -> (x,n) :: acc
-    | ExprAssign (_, _) | ExprIdentifier _ | ExprNum _ | ExprEvent _ -> acc
+    | ExprSelector _ | ExprAssign (_, _) | ExprIdentifier _ | ExprNum _ | ExprEvent _ -> acc
     | ExprNot e -> aux e acc
     | ExprBool (_,e1,e2) -> aux e1 (aux e2 acc)
   in
@@ -184,7 +184,7 @@ let collect_sync_eqs eventexpr =
   let rec aux eventexpr acc =
     match eventexpr with
     | ExprBool (BoolEq, ExprIdentifier x, ExprNum n) -> (x,n) :: acc
-    | ExprAssign (_, _) | ExprIdentifier _ | ExprNum _ | ExprEvent _ -> acc
+    | ExprSelector _ | ExprAssign (_, _) | ExprIdentifier _ | ExprNum _ | ExprEvent _ -> acc
     | ExprNot e -> aux e acc
     | ExprBool (_,e1,e2) -> aux e1 (aux e2 acc)
   in

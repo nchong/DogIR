@@ -11,6 +11,7 @@ let lower = [ 'a'-'z' ]
 let upper = [ 'A'-'Z' ]
 let alpha = (lower | upper)
 let num = digit+
+let selector = "select" (alpha | digit | '_' | '-')*
 let name  = alpha (alpha | digit| '_' | '-')*
 let eventsym = (upper)+
 let oracle = (upper)+ (digit+ | '#' | '?')
@@ -52,6 +53,7 @@ and token = parse
 | oracle as x     { ORACLE x }
 | num as x        { NUM (int_of_string x) }
 | eventsym as x   { EVENTSYM x }
+| selector as x   { SELECTOR x }
 | name as x       { NAME x }
 | eof { EOF }
 | ""  { error "Dog lexer" lexbuf }

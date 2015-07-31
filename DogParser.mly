@@ -5,6 +5,7 @@ open DogGraph
 
 %token <string> ORACLE
 %token <string> EVENTSYM
+%token <string> SELECTOR
 %token <string> NAME
 %token <int> NUM
 %token LET LETEQ COMPLETE
@@ -50,6 +51,7 @@ rule:
 | NAME ARROW NAME COLON eventexpr { ($1, $3, $5) }
 
 eventexpr:
+| SELECTOR { ExprSelector($1) }
 | EVENTSYM { ExprIdentifier($1) }
 | NAME { ExprIdentifier($1) }
 | NUM { ExprNum($1) }
