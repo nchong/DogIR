@@ -273,6 +273,15 @@ let constraint_of_end_state dog end_state =
   let sync_eqs = List.concat (List.map (fun x -> x.sync_eqs) dog_constraints) in
   {formula=disjunct terms; sync_assigns=sync_assigns; sync_eqs=sync_eqs}
 
+(* The fields [assigns] and [eq] are (concrete event vars) associated with an
+   assign and eq synchronization, respectively (e.g., start := 1 and start == 1).
+   The [sync_var] field records the synchronization variable used in the DOG
+   (e.g, start).
+   
+   For example, if
+     e is the variable generated from the edge expression (... && start := 1)
+     f is the variable generated from the edge expression (start == 1)
+   Then the sync_t record will be {[e], f, "start"} *)
 type sync_t = {
   assigns: identifier list;
   eq: identifier;
@@ -281,19 +290,20 @@ type sync_t = {
 
 let hoist_sync_vars formula (syncs:sync_t list) =
   let sync_assigns = nodups (List.flatten (List.map (fun x -> x.assigns) syncs)) in
-  let sync_equalities = List.map (fun x -> x.eq) syncs in
+  let sync_eqs = List.map (fun x -> x.eq) syncs in
+  (* each sync_var (e.g., start) results in a fresh sync var *)
   let sync_vars = nodups (List.map (fun x -> x.sync_var) syncs) in
   let sync_var_to_fresh = List.map (fun x -> (x, sfresh_name ())) sync_vars in
-  (* associate every sync assign or eq to a fresh var using sync_var as a key *)
-  let sync_var_map =
+  let fresh_of_sync_var sync_var = List.assoc sync_var sync_var_to_fresh in
+  let sync_var_map = (* sync assign/eq -> fresh var using sync_var as a key *)
     List.flatten (
       List.map
-      (fun x ->
-       let fresh = List.assoc x.sync_var sync_var_to_fresh in
-       (x.eq, fresh) :: List.map (fun y -> (y, fresh)) x.assigns)
-      syncs
-    )
-  in
+        (fun sync ->
+         let fresh = fresh_of_sync_var sync.sync_var in
+         (sync.eq, fresh) :: List.map (fun x -> (x, fresh)) sync.assigns)
+        syncs
+    ) in
+  let sync_of_var var = List.assoc var sync_var_map in
   let rec hoist = function
     | ConstraintNot subformula -> ConstraintNot (hoist subformula)
     | ConstraintAnd conjuncts -> ConstraintAnd (List.map hoist conjuncts)
@@ -301,15 +311,16 @@ let hoist_sync_vars formula (syncs:sync_t list) =
     | ConstraintImplies (lhs, rhs) -> ConstraintImplies (hoist lhs, hoist rhs)
     | ConstraintExists (vs, subterm) ->
       let assigns = List.filter (fun v -> List.mem v sync_assigns) vs in
-      let eqs, vs' = List.partition (fun v -> List.mem v sync_equalities) vs in
+      let eqs, vs' = List.partition (fun v -> List.mem v sync_eqs) vs in
       let subterm' = hoist subterm in
-      let assign_terms = List.map (fun v -> ConstraintEq (v, List.assoc v sync_var_map)) assigns in
-      let eq_terms = List.map (fun v -> ConstraintSync (List.assoc v sync_var_map, v)) eqs in
+      let assign_terms = List.map (fun v -> ConstraintEq (v, sync_of_var v)) assigns in
+      let eq_terms = List.map (fun v -> ConstraintSync (sync_of_var v, v)) eqs in
       let formula = simplify (conjunct (subterm' :: (assign_terms @ eq_terms))) in
       ConstraintExists (vs', formula)
     | _ as formula -> formula
   in
-  ConstraintExists (List.sort compare (nodups (List.map snd sync_var_map @ sync_equalities)), hoist formula)
+  let vs = List.sort compare (nodups (List.map snd sync_var_map @ sync_eqs)) in
+  ConstraintExists (vs, hoist formula)
 
 (* TODO: better to rewrite assertion without assuming structure of formula *)
 let constraint_of_assert dog assertion =
