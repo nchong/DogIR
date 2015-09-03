@@ -1,0 +1,199 @@
+\documentclass[10pt]{paper}
+\usepackage{amsmath}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage[hyphens]{url}
+
+\newcommand{\po}{\mathsf{po}}
+\newcommand{\poloc}{\mathsf{po\text{-}loc}}
+\newcommand{\co}{\mathsf{co}}
+\newcommand{\rf}{\mathsf{rf}}
+\newcommand{\fr}{\mathsf{fr}}
+\newcommand{\com}{\mathsf{com}}
+\newcommand{\loc}{\mathsf{loc}}
+\newcommand{\axiom}[1]{\textsc{#1}}
+\newcommand{\litmus}[1]{\texttt{#1}}
+\newcommand{\state}[1]{\texttt{#1}}
+
+\newcommand{\JAComment}[1]{\textcolor{red}{(Jade: #1)}}
+\newcommand{\NCComment}[1]{\textcolor{green}{(Nathan: #1)}}
+\newcommand{\DSComment}[1]{\textcolor{blue}{(Daryl: #1)}}
+
+\begin{document}
+\title{Linking Architecture and Microarchitecture with Cats and Dogs}
+\author{Jade Alglave\and Nathan Chong\and Daryl Stewart}
+\maketitle
+
+\begin{abstract}
+We report on work to address the problem of formally linking a specification to an implementation in hardware design.
+%
+More specifically, the memory consistency model (architecture) with respect to the design of a load-store unit (microarchitecture).
+\end{abstract}
+
+Determining if a design meets or is within the envelope of a specification is a key problem in design integrity.
+%
+This is a particularly difficult problem if the specification is large or subtle, as in the case of the ARM architecture (which is both).
+%
+Common and valuable approaches to this problem are code reviews, testing and block-level assertions.
+%
+In this report, we look at linking the work of Alglave et al.~\cite{}, for reasoning about memory models (i.e., architecture), with the work of Stewart et al.~\cite{}, for defining and checking end-to-end properties of a processor memory system (i.e., microarchitecture).
+
+\section{Background}
+
+\subsection{Cats}
+
+Cats is a generic framework for defining and exploring (axiomatic\footnote{Operational semantics is an alternative approach}) formalisations of memory models.
+%
+In this work a memory model is a set of axioms, expressed as relations and orders over the set of memory events, that can be `run', using the herd tool, over a given litmus test to automatically explore possible execution behaviours.
+
+A litmus test is a multiprocessor program giving a sequence of instructions (e.g., \texttt{LDR} and \texttt{STR}) per thread.
+%
+A litmus test gives rise to a set of behaviours or \emph{candidate executions} (containing events such as reads and writes) that can be checked with respect to the memory model axioms.
+%
+If any axiom is violated then the execution is forbidden (i.e, an implementation must never exhibit this behaviour); otherwise, the execution is allowed by the architecture (i.e., an implementation may exhibit this behaviour).
+
+For example, the ARM model in herd defines the axiom
+  \axiom{SC-PER-LOC} (sequential consistency per location)
+as
+  $\texttt{acyclic} (\poloc \cup \com)$,
+where
+  $\poloc = \po \cap \loc$
+and
+  $\com = \co \cup \rf \cup \fr$.
+
+The relation $\po$ (program order) is defined between events arising from instructions executing on the same thread;
+%
+$\co$ (coherence order) is a total order over writes to the same location;
+%
+$\rf$ (reads-from) is a relation that connects a write to a read of the same location (where the value read is the same as the value written);
+%
+and, finally, the $\fr$ (from-reads) relation is induced by $\co$ and $\rf$: if a write $w$ is $\co$-before a write $w'$ and $r$ reads-from $w$ then $r$ from-reads $w'$.
+
+Now, consider the following litmus test, known as \litmus{coRR}:
+%
+\begin{verbatim}
+  // [x] = 0 initially
+  // P0         |   P1
+  STR [x], #1   |   LDR r0, [x]
+                |   LDR r1, [x]
+\end{verbatim}
+
+The outcome $\texttt{r0} = 1$ with $\texttt{r1} = 0$ is forbidden due to the \axiom{SC-PER-LOC} axiom.
+%
+To see this, consider the candidate execution with this result, which will consist of the following memory events:
+%
+\begin{verbatim}
+  a: W x 1        b: R x 1
+                  c: R x 0
+\end{verbatim}
+%
+Then there is a cycle $a \xrightarrow{\rf} b \xrightarrow{\poloc} c \xrightarrow{\fr} a$, which violates the \texttt{SC-PER-LOC} axiom.
+
+\subsection{Dogs}
+
+DOGRel is a language for expressing implementation-independent end-to-end properties.
+%
+DOGs are properties given as multiple finite state machines (FSMs) (at least one FSM per interface) where each FSM describes an observable behaviour.
+%
+A DOG can be seen as a graph structure where vertices are states and edges are \emph{event expressions} that must be observed to trigger a state change.
+%
+A subtlety about DOG transitions is that events that do not match the outgoing edge are ignored (rather than transitioning to a non-accepting state).
+%
+In this work, we concentrate on DOGs that express properties over the interface of the L1MS (L1 memory system):
+\begin{itemize}
+%
+\item The \emph{load-store domain} between the DPU (datapath unit) and LSU (load-store unit)
+%
+\item The \emph{read-write domain} between the BIU (bus interface unit) and wider memory system
+%
+\end{itemize}
+
+Figure~\ref{fig:load-load-dog} gives a DOG that describes behaviour of two successive (in \emph{clock-time order}) loads to the same address.
+%
+A rough interpretation of this DOG is that loads to the same location in clock-time order are preserved by the L1MS by \emph{star order}, which is a partial order over when an event takes effect\footnote{Our current thinking that this relates to what is called `externally-visible order' or `globally-observed order' in the ARMARM}.
+%
+The path
+  $\state{L0} \rightarrow \state{L1}
+              \rightarrow \state{L2}
+              \rightarrow \state{L3}
+              \rightarrow \state{L4}$
+gives a trace for the load-store domain with two loads to the same location \texttt{A0} with different data\footnote{There is an implicit assumption that $\texttt{D0} \neq \texttt{D1}$} \texttt{D0} and \texttt{D1} in clock-time order (implicitly given by the order that the events are observed).
+%
+The path
+  $\state{M0} \rightarrow \state{M1}
+              \rightarrow \state{M2}
+              \rightarrow \state{M4}$
+describes a trace for the read-write domain with two reads (which match the two loads) where the first read (\texttt{D0}) is star ordered (explicitly given by the star notation attached to each event) before the second read (\texttt{D1}).
+%
+The implication $\state{L4} \mapsto \state{M4}$ ensures that if the behaviour of the load-store domain is observed then the behaviour of the read-write domain \emph{must} have been observed.
+
+\begin{figure}[t]
+\centering
+  \includegraphics[width=.75\textwidth]{figures/loadload.pdf}
+\caption{Load Load dog (source: difts14 talk)}
+\label{fig:load-load-dog}
+\end{figure}
+
+\section{DOGs as First Order Logic Formulas}
+
+A DOG implicitly structures events using different orders such as clock-time order and star order.
+%
+We can make this explicit by consider a first-order formula that represents the semantics of the DOG.
+
+Give a DOG we consider the set of implications specified by the graph.
+%
+Each implication is transformed into a formula and the first-order formula of the whole DOG is the \emph{conjunction} of these formulas.
+
+We assume that each implication is of the form $(S_1 \wedge S_2 \wedge \cdots) \mapsto (T_1 \vee T_2 \vee \cdots)$.
+%
+By substituting each state with an equivalent formula we transform the implication into a first-order implication.
+%
+We call each $S_i$ a \emph{triggering state} and each $T_i$ an \emph{accepting state}.
+%
+For each (triggering or accepting) state $U$ we consider all paths $P_0, P_1, \dots$ from the initial state of the FSM (containing $U$) to $U$.
+%
+Each path $P_i$ is transformed into a path-formula $f_i$ so that the formula for $U$ is the \emph{disjunction} of these path-formulas (i.e., $\bigvee f_i$).
+
+Given a path we consider if it is a path of the load-store or read-write domain.
+%
+In the following we assume the path is a sequence of states $U_0, \dots, U_{final}$.
+%
+Consider the expressions that transition the states of the path.
+%
+\subsection{Star order}
+
+\begin{tabular}{lll}
+\textbf{Event expression pair} & \textbf{Interpretation}   & \textbf{Formula} \\
+\texttt{a}, \texttt{b*+}       & pure alpha                & $e <_{so} f$ \\
+\texttt{a}, \texttt{b*-}       & pure beta                 & $f <_{so} e$ \\
+\texttt{a}, \texttt{b*!+}      & not alpha (beta or gamma) & $e =_{so} f \vee f <_{so} e$ \\
+\texttt{a}, \texttt{b*!-}      & not beta (alpha or gamma) & $e =_{so} f \vee e <_{so} f$ \\
+\end{tabular}
+
+\subsection{Load-Store Domain Path-Formulas}
+%
+Each transition of the path results in at most one fresh variable.
+%
+\NCComment{Fresh variables, match structure, clock-time of path, vacuous escapes}
+
+\subsection{Read-Write Domain Path-Formulas}
+%
+\NCComment{Filter preload path, Fresh variables, match structure, clock-time of path, star constraints, negated adjacent paths}
+
+\subsection{Syncs}
+
+\subsection{Implementation}
+
+An implementation of this transformation is given here: \url{https://github.com/nchong/dogir}.
+
+\subsection{Daryl's alternative transformation}
+
+\subsection{Alternative: Deep embedding in Coq/HOL}
+
+\section{Hand-written \litmus{coRR} proof}
+%
+Using formula generated from load-load DOG we can reason about the \litmus{coRR} test.
+
+\section{Related Work}
+
+\end{document}
