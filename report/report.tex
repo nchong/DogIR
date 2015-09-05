@@ -15,6 +15,8 @@
 \newcommand{\litmus}[1]{\texttt{#1}}
 \newcommand{\state}[1]{\texttt{#1}}
 
+\newcommand{\match}{\;\mathsf{match}\;}
+
 \newcommand{\JAComment}[1]{\textcolor{red}{(Jade: #1)}}
 \newcommand{\NCComment}[1]{\textcolor{green}{(Nathan: #1)}}
 \newcommand{\DSComment}[1]{\textcolor{blue}{(Daryl: #1)}}
@@ -36,7 +38,7 @@ This is a particularly difficult problem if the specification is large or subtle
 %
 Common and valuable approaches to this problem are code reviews, testing and block-level assertions.
 %
-In this report, we look at linking the work of Alglave et al.~\cite{}, for reasoning about memory models (i.e., architecture), with the work of Stewart et al.~\cite{}, for defining and checking end-to-end properties of a processor memory system (i.e., microarchitecture).
+In this report, we look at linking the work of Alglave et al.~\cite{cats}, for reasoning about memory models (i.e., architecture), with the work of Stewart et al.~\cite{dogs}, for defining and checking end-to-end properties of a processor memory system (i.e., microarchitecture).
 
 \section{Background}
 
@@ -160,6 +162,15 @@ In the following we assume the path is a sequence of states $U_0, \dots, U_{fina
 %
 Consider the expressions that transition the states of the path.
 %
+If the expression contains events then we generate a fresh variable that must \emph{match} at least one of the events of the expression.
+%
+For example, the expression \texttt{selectBE \&\& BE \&\& start = 1} between states \state{L0} and \state{L1} in Figure~\ref{fig:load-load-dog} involves the event set $E = \{\textsf{reset}, \textsf{dsb@s}, \textsf{ST(A0,!D\#)@s}\}$.
+%
+If we generate a fresh variable $e$ then we require that $e$ \emph{matches} $E$ meaning that $e$ is an event drawn from $E$.
+%
+\subsection{Clock-time order}
+If there is an edge $U \rightarrow^{expr1} U' \rightarrow^{expr2} U''$ then
+
 \subsection{Star order}
 
 \begin{tabular}{lll}
@@ -182,6 +193,8 @@ Each transition of the path results in at most one fresh variable.
 
 \subsection{Syncs}
 
+\subsection{Complete events}
+
 \subsection{Implementation}
 
 An implementation of this transformation is given here: \url{https://github.com/nchong/dogir}.
@@ -194,6 +207,67 @@ An implementation of this transformation is given here: \url{https://github.com/
 %
 Using formula generated from load-load DOG we can reason about the \litmus{coRR} test.
 
+\section{Hand-written \litmus{coRW1} proof}
+
+\begin{verbatim}
+  // [x] = 0 initially
+  // P0
+  LDR r0, [x]
+  STR [x], #1
+\end{verbatim}
+
+The outcome $\texttt{r0} = 1$ is forbidden due to the \axiom{SC-PER-LOC} axiom.
+
+\subsection{Load-Store DOG formula}
+
+\begin{figure}[p]
+\begin{verbatim}
+exists sync :
+  exists e0 e1 e2 e3 :
+    (* match structure *)
+    e0 match BE /\
+    e1 match { LD(A0,D0)@s } /\
+    e2 match { ST(A0,D1)@s } /\
+    isComplete(e3, {e0, e1, e2}) /\
+    e0 = sync /\
+    (* ct path constraint *)
+    e0 <=ct e1 <=ct e2 <=ct e3 /\
+    (* vacuous escapes *)
+    not (exists x0 : x0 match { ST(A0,D1)@s } /\
+                     x0 <=ct e0) /\
+    not (exists x1 : x1 match { ST(A0,DX)@s } U BE /\
+                     e0 <=ct x1 <=ct e1) /\
+    not (exists x2 : x2 match { LD(A0,DX)@s, ST(A0,!D1)@s } U BE /\
+                     e1 <=ct x2 <=ct e2)
+
+  =>
+
+  (* path ABD *)
+  exists f0 :
+    f0 match { RD(A0,D0)@s } /\
+    sync <=ct f0 /\
+    (* no step to bad state E *)
+    not (exists y0 : y0 match { WR(A0,D1)@s } /\
+                     f0 <=ct y0 /\
+                     (f0 =so y0 \/ y0 <so f0))
+
+  \/
+
+  (* path ABCF *)
+  exists f1 f2 :
+    f1 match { WR(A0,D1)@s } /\
+    f2 match { RD(A0,D0)@s } /\
+    sync <=ct f1 <=ct f2 /\
+    f2 <so f1
+\end{verbatim}
+\caption{Simplified formula for Uniproc Load-Store DOG}
+\label{fig:loadstore-formula}
+\end{figure}
+
+
 \section{Related Work}
+
+\bibliographystyle{alpha}
+\bibliography{references}
 
 \end{document}
