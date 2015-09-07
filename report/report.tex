@@ -2,6 +2,7 @@
 \usepackage{amsmath}
 \usepackage{graphicx}
 \usepackage{xcolor}
+\usepackage{booktabs}
 \usepackage[hyphens]{url}
 
 \newcommand{\po}{\mathsf{po}}
@@ -29,7 +30,7 @@
 \begin{abstract}
 We report on work to address the problem of formally linking a specification to an implementation in hardware design.
 %
-More specifically, the memory consistency model (architecture) with respect to the design of a load-store unit (microarchitecture).
+More specifically, the memory consistency model (architecture) with respect to the design of a L1 memory system (microarchitecture).
 \end{abstract}
 
 Determining if a design meets or is within the envelope of a specification is a key problem in design integrity.
@@ -156,44 +157,88 @@ For each (triggering or accepting) state $U$ we consider all paths $P_0, P_1, \d
 %
 Each path $P_i$ is transformed into a path-formula $f_i$ so that the formula for $U$ is the \emph{disjunction} of these path-formulas (i.e., $\bigvee f_i$).
 
-Given a path we consider if it is a path of the load-store or read-write domain.
-%
 In the following we assume the path is a sequence of states $U_0, \dots, U_{final}$.
 %
 Consider the expressions that transition the states of the path.
 %
-If the expression contains events then we generate a fresh variable that must \emph{match} at least one of the events of the expression.
+If the expression contains events then we first generate a fresh (event) variable that corresponds to these events.
 %
-For example, the expression \texttt{selectBE \&\& BE \&\& start = 1} between states \state{L0} and \state{L1} in Figure~\ref{fig:load-load-dog} involves the event set $E = \{\textsf{reset}, \textsf{dsb@s}, \textsf{ST(A0,!D\#)@s}\}$.
+This is the concrete event from a trace that matches an event of the expression, allowing the edge to transition.
 %
-If we generate a fresh variable $e$ then we require that $e$ \emph{matches} $E$ meaning that $e$ is an event drawn from $E$.
+For example, the expression \texttt{selectBE \&\& BE \&\& start = 1} between states \state{L0} and \state{L1} in Figure~\ref{fig:load-load-dog} uses the events $E = \{\textsf{reset}, \textsf{dsb@s}, \textsf{ST(A0,!D\#)@s}\}$.
+%
+This is denoted $(e \match E)$ and we call $e$ the match variable.
 %
 \subsection{Clock-time order}
-If there is an edge $U \rightarrow^{expr1} U' \rightarrow^{expr2} U''$ then
+%
+For each pair of edges $U \xrightarrow{expr} U' \xrightarrow{expr'} U''$ in the path where $e$ and $e'$ are the corresponding match variables for the expressions $expr$ and $expr'$ we generate the following \emph{path constraint}:
+%
+\[
+e \leq_{ct} e'
+\]
+%
+For example, in Figure~\ref{fig:load-load-dog}, the path $\state{L0} \xrightarrow{expr_0} \state{L1} \xrightarrow{expr_1} \state{L2} \xrightarrow{expr_2} \state{L3} \xrightarrow{expr_3} \state{L4}$ yields the path constraint $e_0 \leq_{ct} e_1 \leq_{ct} e_2 \leq_{ct} e_3$ where $e_i$ is the corresponding match variable for $expr_i$.
+
+\subsection{Vacuous escapes}
+%
+In Figure~\ref{fig:load-load-dog}, the transitions to state \state{LT} are \emph{vacuous escapes} because if any of these transitions is taken then the triggering state \state{L4} is unreachable.
+%
+We encode this as part of the \emph{path constraint} by generating a fresh match variable for each vacuous escape transition.
+%
+For example, if $x_0$ is the corresponding match variable for the vacuous escape transition $\state{L1} \rightarrow \state{LT}$ then we encode:
+\[
+\neg (\exists x_0 : e_0 \leq_{ct} x_0 \leq_{ct} e_1)
+\]
+%
+and similarly, for the other escape transitions.
 
 \subsection{Star order}
+%
+If the path contains a pair of expressions containing \emph{star} events then we generate constraints using Table~\ref{table:star} where $e$ (respectively $f$) is the match variable corresponding to the event expression \texttt{a} (respectively \texttt{b}).
+%
+Note that it is acceptable for clock-time and star-order to `contradict'.
+%
+For example, $f \leq_{ct} e \wedge e <_{so} f$.
 
+\begin{table}[h]
+\caption{Star ordering constraints}
+\label{table:star}
 \begin{tabular}{lll}
+\toprule
 \textbf{Event expression pair} & \textbf{Interpretation}   & \textbf{Formula} \\
+\midrule
 \texttt{a}, \texttt{b*+}       & pure alpha                & $e <_{so} f$ \\
 \texttt{a}, \texttt{b*-}       & pure beta                 & $f <_{so} e$ \\
 \texttt{a}, \texttt{b*!+}      & not alpha (beta or gamma) & $e =_{so} f \vee f <_{so} e$ \\
 \texttt{a}, \texttt{b*!-}      & not beta (alpha or gamma) & $e =_{so} f \vee e <_{so} f$ \\
+\bottomrule
 \end{tabular}
+\end{table}
 
-\subsection{Load-Store Domain Path-Formulas}
+\subsection{Complete events}
 %
-Each transition of the path results in at most one fresh variable.
+If a path contains a \texttt{COMPLETE} event then we must encode the following condition.
+%
+Let $e$ be the match variable corresponding to the complete event and $\mathsf{starts}$ be the set of match variables corresponding to the event expressions along the path up to the complete event.
+%
+Then $\mathsf{isComplete}(e, \mathsf{starts})$ is defined as
+%
+\begin{align*}
+\exists x \in \mathsf{starts} & : e\; \mathsf{isEndFor}\; x \wedge \\
+\forall s \in \mathsf{starts} & : \exists u \in Ev : u\; \mathsf{isEndFor}\; s \wedge u \leq_{ct} e \\
+\end{align*}
+
+\subsection{Syncs}
+
+We now consider if the path is taken from the load-store or read-write domain.
+%
+\subsection{Load-Store Domain Path-Formulas}
 %
 \NCComment{Fresh variables, match structure, clock-time of path, vacuous escapes}
 
 \subsection{Read-Write Domain Path-Formulas}
 %
 \NCComment{Filter preload path, Fresh variables, match structure, clock-time of path, star constraints, negated adjacent paths}
-
-\subsection{Syncs}
-
-\subsection{Complete events}
 
 \subsection{Implementation}
 
@@ -228,7 +273,7 @@ exists sync :
     e0 match BE /\
     e1 match { LD(A0,D0)@s } /\
     e2 match { ST(A0,D1)@s } /\
-    isComplete(e3, {e0, e1, e2}) /\
+    isComplete(e3, { e0, e1, e2 }) /\
     e0 = sync /\
     (* ct path constraint *)
     e0 <=ct e1 <=ct e2 <=ct e3 /\
