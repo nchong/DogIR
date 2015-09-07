@@ -17,6 +17,7 @@
 \newcommand{\state}[1]{\texttt{#1}}
 
 \newcommand{\match}{\;\mathsf{match}\;}
+\newcommand{\isEndFor}{\;\mathsf{isEndFor}\;}
 
 \newcommand{\JAComment}[1]{\textcolor{red}{(Jade: #1)}}
 \newcommand{\NCComment}[1]{\textcolor{green}{(Nathan: #1)}}
@@ -133,7 +134,7 @@ The implication $\state{L4} \mapsto \state{M4}$ ensures that if the behaviour of
 \begin{figure}[t]
 \centering
   \includegraphics[width=.75\textwidth]{figures/loadload.pdf}
-\caption{Load Load dog (source: difts14 talk)}
+\caption{Load Load DOG (source: difts14 talk)}
 \label{fig:load-load-dog}
 \end{figure}
 
@@ -224,29 +225,190 @@ Let $e$ be the match variable corresponding to the complete event and $\mathsf{s
 Then $\mathsf{isComplete}(e, \mathsf{starts})$ is defined as
 %
 \begin{align*}
-\exists x \in \mathsf{starts} & : e\; \mathsf{isEndFor}\; x \wedge \\
-\forall s \in \mathsf{starts} & : \exists u \in Ev : u\; \mathsf{isEndFor}\; s \wedge u \leq_{ct} e \\
+\exists x \in \mathsf{starts} & : e\; \isEndFor\; x\; \wedge \\
+\forall s \in \mathsf{starts} & : \exists u \in Ev : u\; \isEndFor\; s \wedge u \leq_{ct} e \\
 \end{align*}
-
-\subsection{Syncs}
+%
+where $e \isEndFor s$ means that the event $e$ is the \texttt{@e} corresponding to the \texttt{@s} of the start event $s$ (i.e., all event actuals match except for the start/end annotation).
 
 We now consider if the path is taken from the load-store or read-write domain.
 %
 \subsection{Load-Store Domain Path-Formulas}
 %
-\NCComment{Fresh variables, match structure, clock-time of path, vacuous escapes}
+A path from the load-store domain results in a formula with:
+%
+\begin{itemize}
+\item Fresh match variables for each event expression
+%
+\item A clock-time path constraint over these match variables
+%
+\item A set of vacuous escape conjuncts for each vacuous escape path
+\end{itemize}
 
 \subsection{Read-Write Domain Path-Formulas}
 %
-\NCComment{Filter preload path, Fresh variables, match structure, clock-time of path, star constraints, negated adjacent paths}
+A path from the read-write domain is similar, except we consider two further problems:
+%
+\begin{itemize}
+%
+\item Star constraints as given above.
+%
+\item Preload paths: if the path contains a preload then we do not generate a constraint (i.e., the resulting formula is $\mathsf{true}$); this is because the preload means that we cannot make a one-to-one correspondence between the loads and reads of the DOG.
+%
+In this case, we rely on the data independence property.
+%
+\item If the last state of the path is an accepting state and there are transitions out of this state to non-accepting states then we recursively generate the formula for the path for each non-accepting state and conjunct its \emph{negation}.
+%
+Hence, we encode the property of reaching the accepting state \emph{and proceeding no further}.
+%
+\end{itemize}
+
+\subsection{Syncs}
+%
+Finally, we consider the constraint generated from two paths where one contains a synchronization assignment (e.g., \texttt{start = 1} in the transition from \state{L0} to \state{L1}) and the other contains a synchronization test (e.g., \texttt{start == 1} from \state{M0} to \state{M1} from Figure~\ref{fig:load-load-dog}).
+%
+In this case we generate a clock-time constraint between the synchronization assignment and test since the latter cannot transition until after the former.
+%
+For example, if $e$ (respectively, $e'$) is the match variable corresponding to the synchronization assignment (respectively, the synchronization test) then the generated constraint is $e\leq_{ct} e'$.\NCComment{Should be strict clock-time?}
+%
+One subtlety is the scope of the match variable corresponding to the synchronization assignment.
+%
+It is necessary to hoist this variable to the top-level of the formula so that its scope is correct.
 
 \subsection{Implementation}
 
-An implementation of this transformation is given here: \url{https://github.com/nchong/dogir}.
+As part of this work we have developed an Ocaml implementation that generates a formula from a DOG input.
+%
+See \url{https://github.com/nchong/dogir}.
+%
+For example, the (simplified) output of the tool given the DOG in Figure~\ref{fig:load-load-dog} is:
+%
+\begin{verbatim}
+exists f0 sync :
+  exists e0 e1 e2 e3 :
+    (* match structure *)
+    e0 matches { DSB()@s, ST(A0, !D#)@s } /\
+    e1 matches { LD(A0, D0)@s } /\
+    e2 matches { LD(A0, D1)@s} /\ 
+    e3 matches { LD(A0, D1)@e} /\
+    (* path constraint *)
+    e0 <=ct e1 <=ct e2 <=ct e3 /\
+    (* vacuous escapes *)
+    not (exists x0 :
+      x0 matches { ST(A0, D#)@s, DSB()@s, ST(A0, !D#)@s } /\
+      e0 <=ct x0 <=ct e1 /\
+    not (exists x1 :
+      x1 matches { ST(A0, D#)@s, DSB()@s, ST(A0, !D#)@s, LD(A0, !D#)@s } /\
+      e1 <=ct x1 <=ct e2 /\
+    (* synchronization assignment *)
+    e0 = sync
+  =>
+  exists f1 :
+    (* match structure *)
+    f0 matches { RD(A0, D0)@s } /\ 
+    f1 matches { RD(A0, D1)@s ) /\
+    (* path constraint *)
+    f0 <=ct f1 /\
+    (* star constraint *)
+    f0 <so f1 /\
+    (* synchronization test *)
+    sync <=ct f0
+\end{verbatim}
 
 \subsection{Daryl's alternative transformation}
 
+An alternative transformation is given here.
+%
+\NCComment{Copy and pasted. Should be reviewed.}
+%
+\begin{verbatim}
+An Execution = (Ev, po, rf, co)
+
+/* The guarding observable events of a transition */
+guardsOf(s0, s1) = { e | s0->s1: ...∨ e ∨... }
+
+/* Selecting an appropriate event from an execution which can satisfy a transition's guarding observable event */
+
+(complete accepts x from Ev for observed stars)
+iff /* x is an @e event for some  observed @s event */
+    ∃w∈observed. x isEndFor w
+    /* and all other observed *s events have completed */
+    ∧ ∀v∈observed. isStartEvent(v) → ∃u∈Ev. u isEndFor v ∧ ct≤(u, x)
+
+(e accepts x from Ev for observed stars)
+iff /* e is an observable event (i.e. event pattern) which would be satisfied by an occurrence of event x */
+    x isAcceptableInstanceOfObservableEvent e
+    ∧ ( isStartEvent(x) ∨ ∃y∈observed. x isEndFor y)
+
+/* accepting a lone star event - the empty condition could be removed for something different */
+(e*   accepts x from Ev for observed stars) iff (e accepts x from Ev for observed stars) ∧ empty(stars)
+
+/* cases for star ordering observable events */
+(e*+  accepts x from Ev for observed stars) iff (e accepts x from Ev for observed stars) ∧ ∀s∈stars. s so< x
+(e*!- accepts x from Ev for observed stars) iff (e accepts x from Ev for observed stars) ∧ ∀s∈stars. s so≤ x
+(e*!+ accepts x from Ev for observed stars) iff (e accepts x from Ev for observed stars) ∧ ∀s∈stars. s so≥ x
+(e*-  accepts x from Ev for observed stars) iff (e accepts x from Ev for observed stars) ∧ ∀s∈stars. s so> x
+(E accept x from Ev for observed stars) iff ∃e∈E. (e accepts x from Ev for observed stars )
+
+/* how to notice a loneStar transition
+ * assumes that for a well-formed DOG, no two observable events on a single transition can both accept a particular event x
+ */
+(E sawStar x from Ev for observed stars) iff ∃e∈E. (e accepts x from Ev for observed stars ) ∧ isLoneStar(e)
+
+
+/* An event can cause a transition... */
+((s,s') transitionsOn x from Ev for observed stars ) iff guardsOf (s,s') accept x from Ev for observed stars)
+
+/* how to notice a loneStar transition */
+((s,s') transitionsOnStar x from Ev for observed stars ) iff guardsOf (s,s') sawStar x from Ev for observed stars)
+
+/* Creating a FOX from a path */
+
+/* Helper for creating a FOX from a path */
+  FOXpaths(s0::s1::path, observed as xin::_, stars) = /* recursive case for creation of FOX from path */
+    /* There is an event which can be used to transition from s0 to s1.
+     * Herein we associate this with identifier x01, but note that name is actually a fresh name not found in observed
+     */
+  ∃x01∈Ev\observed.
+  ( ((s0, s1) transitionsOn x01 from Ev for observed stars) ∧ ct≤(xin, x01)
+    ∧   /* There is no other event which could have caused the transition to s1 earlier than x01 */
+        ( ∄x00∈Ev\observed. ((s0, s1) transitionsOn x00 from Ev for observed stars) ∧ ct≤(xin, x00) ∧ ct<(x00, x01) )
+    ∧
+        ( ∀s∈successors(s0)\s1.
+            /* No higher priority state could have been reached from s0 instead */
+            ( priority(s)>priority(s1)
+                → ∄x0s∈Ev\observed. (s0, s) transitionsOn x0s from Ev for observed stars
+                                  ∧ ct≤(xin, x0s) ∧ ct≤(x0s, x01)
+            )
+        ∧   /* no same priority state could have been reached from s0 instead */
+            ( priority(s)=priority(s1)
+                → ∄x0s∈Ev\observed. (s0, s) transitionsOn x0s from Ev for observed stars
+                                  ∧ ct≤(xin, x0s) ∧ ct<(x0s, x01)
+            )
+        )
+    ∧ /* and the rest of the path can be traversed 
+       * Note that newStars is actually a fresh name
+       */
+        ∃newStars⊆Ev. stars⊆newStars /* REVISIT - choice operator usable in coq?? */
+                    ∧ x01∈newStars⟺((s0, s1) sawStar x01 from Ev for observed stars)
+                    ∧ FOXpaths(s1::path, x01::observed, newStars)
+  )
+
+  FOXpaths(s0::[], xin, observed, stars) = /* base case for creation of FOX from path */
+    /* There is no event leading from the last state of the path */
+  ∀s∈successors(s0). ∄xout∈Ev\observed. (s0, s) transitionsOn xout from Ev for observed stars ∧ ct≤(xin, xout)
+
+/* Main entrypoint to create a FOX from a path */
+FOXpath(path) = FOXpaths(path, [time0], []); /* The event causing entry to the initial state is t0 */
+\end{verbatim}
+
 \subsection{Alternative: Deep embedding in Coq/HOL}
+
+Lastly, we have considered, but not implemented a deep embedding of a theory of DOGs in Coq/HOL.
+%
+The advantage of this approach is that higher-order logic can be brought to bear on the problem.
+%
+\NCComment{The main disadvantage is that we have to use Coq ;-)}
 
 \section{Hand-written \litmus{coRR} proof}
 %
