@@ -281,8 +281,9 @@ As part of this work we have developed an Ocaml implementation that generates a 
 %
 See \url{https://github.com/nchong/dogir}.
 %
-For example, the (simplified) output of the tool given the DOG in Figure~\ref{fig:load-load-dog} is:
+For example, the (annotated) output of the tool given the DOG in Figure~\ref{fig:load-load-dog} is:
 %
+\begin{figure}[h]
 \begin{verbatim}
 exists f0 sync :
   exists e0 e1 e2 e3 :
@@ -314,6 +315,9 @@ exists f0 sync :
     (* synchronization test *)
     sync <=ct f0
 \end{verbatim}
+\caption{Formula of Load-Load DOG}
+\label{fig:load-load-formula}
+\end{figure}
 
 \subsection{Daryl's alternative transformation}
 
@@ -427,6 +431,8 @@ The outcome $\texttt{r0} = 1$ is forbidden due to the \axiom{SC-PER-LOC} axiom.
 
 \subsection{Load-Store DOG formula}
 
+Given in Figure~\ref{fig:loadstore-formula}.
+
 \begin{figure}[p]
 \begin{verbatim}
 exists sync :
@@ -471,8 +477,9 @@ exists sync :
 \label{fig:loadstore-formula}
 \end{figure}
 
-
 \section{Related Work}
+
+PipeCheck and ARMOR work by Princeton.
 
 \bibliographystyle{alpha}
 \bibliography{references}
